@@ -1054,6 +1054,7 @@ export default function Settings() {
 }
 
 function LicenseKeyManager() {
+  const queryClient = useQueryClient();
   const [labName, setLabName] = useState('');
   const [fingerprint, setFingerprint] = useState('');
   const [expiryDate, setExpiryDate] = useState('2030-01-01');
@@ -1061,9 +1062,53 @@ function LicenseKeyManager() {
   const [generatedKey, setGeneratedKey] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const [editLabName, setEditLabName] = useState('');
+  const [editExpiryDate, setEditExpiryDate] = useState('');
+
   const { data: fpData } = useQuery({
     queryKey: ['license-fingerprint'],
     queryFn: () => api.get('/licensing/fingerprint')
+  });
+
+  const { data: devices = [], refetch: refetchDevices } = useQuery<any[]>({
+    queryKey: ['licensing-devices'],
+    queryFn: () => api.get('/licensing/devices')
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, labName, expiryDate }: { id: string; labName: string; expiryDate?: string }) =>
+      api.post(`/licensing/devices/${id}/approve`, { labName, expiryDate }),
+    onSuccess: () => {
+      refetchDevices();
+      setEditingDeviceId(null);
+      toast.success('Device approved successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Approval failed.');
+    }
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/licensing/devices/${id}/block`, {}),
+    onSuccess: () => {
+      refetchDevices();
+      toast.info('Device access blocked.');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Action failed.');
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/licensing/devices/${id}`),
+    onSuccess: () => {
+      refetchDevices();
+      toast.info('Device registration deleted.');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Delete failed.');
+    }
   });
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -1096,20 +1141,151 @@ function LicenseKeyManager() {
 
   return (
     <div className="space-y-6">
+      
+      {/* 1. Device Approval Panel */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
+        <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+          <Building size={18} className="text-teal-600 dark:text-teal-400" />
+          <span>Device Activation Approvals (Online Approval Panel)</span>
+        </h3>
+
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Laptops or client devices attempting to access this laboratory software are auto-registered below. Toggle approval to instantly authorize or block access.
+        </p>
+
+        <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <th className="px-4 py-3">Lab / Client Name</th>
+                <th className="px-4 py-3">Hardware Fingerprint</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Expiry Date</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              {devices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                    No laptops or devices have requested activation yet.
+                  </td>
+                </tr>
+              ) : (
+                devices.map((device: any) => {
+                  const isEditing = editingDeviceId === device.id;
+                  return (
+                    <tr key={device.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
+                      <td className="px-4 py-3.5">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editLabName}
+                            onChange={e => setEditLabName(e.target.value)}
+                            className="px-2 py-1 rounded bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-300 w-full focus:outline-none focus:border-teal-500"
+                          />
+                        ) : (
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{device.labName}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-[10px] text-slate-400 select-all break-all max-w-[200px]">
+                        {device.fingerprint}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
+                          ${device.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : ''}
+                          ${device.status === 'PENDING' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 animate-pulse' : ''}
+                          ${device.status === 'BLOCKED' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : ''}
+                        `}>
+                          {device.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-500">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            value={editExpiryDate}
+                            onChange={e => setEditExpiryDate(e.target.value)}
+                            className="px-2 py-1 rounded bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+                          />
+                        ) : (
+                          device.expiryDate ? new Date(device.expiryDate).toLocaleDateString() : 'Perpetual'
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right space-x-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => approveMutation.mutate({ id: device.id, labName: editLabName, expiryDate: editExpiryDate || undefined })}
+                              className="px-2.5 py-1 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 text-white rounded text-[10px] font-bold"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingDeviceId(null)}
+                              className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-750 dark:text-slate-250 rounded text-[10px] font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {device.status !== 'APPROVED' ? (
+                              <button
+                                onClick={() => {
+                                  setEditingDeviceId(device.id);
+                                  setEditLabName(device.labName.startsWith('Unactivated') ? '' : device.labName);
+                                  setEditExpiryDate(device.expiryDate ? device.expiryDate.split('T')[0] : '');
+                                }}
+                                className="px-2.5 py-1 bg-teal-600 dark:bg-teal-500 hover:bg-teal-750 text-white rounded text-[10px] font-bold shadow-sm"
+                              >
+                                Approve
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => blockMutation.mutate(device.id)}
+                                className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100/50 text-rose-600 dark:text-rose-450 rounded text-[10px] font-bold border border-rose-200 dark:border-rose-900"
+                              >
+                                Block
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Delete this device registration?')) {
+                                  deleteMutation.mutate(device.id);
+                                }
+                              }}
+                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded inline-flex items-center"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2. Key Generation Utility (Offline Fallback) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
         <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
           <ShieldCheck size={18} className="text-teal-600 dark:text-teal-400" />
-          <span>Super Admin Licensing Console</span>
+          <span>Activation Key Signer (Offline Fallback)</span>
         </h3>
         
         <p className="text-xs text-slate-500 leading-relaxed">
-          Generate base64-encoded, cryptographically signed activation keys for remote laboratory instances. The signature is bound to the target machine's hardware fingerprint.
+          Generate base64-encoded, cryptographically signed activation keys for remote offline laboratory instances. The signature is bound to the target machine\'s hardware fingerprint.
         </p>
 
         {fpData?.fingerprint && (
           <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-855 rounded-lg text-xs flex justify-between items-center">
             <div>
-              <span className="font-bold text-slate-700 dark:text-slate-300 block">This Machine's Fingerprint:</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300 block">This Machine\'s Fingerprint:</span>
               <span className="font-mono text-slate-500 text-[10px] break-all">{fpData.fingerprint}</span>
             </div>
             <button
@@ -1142,7 +1318,7 @@ function LicenseKeyManager() {
               <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Target Hardware Fingerprint</label>
               <input
                 type="text"
-                placeholder="Paste client's hardware fingerprint hash"
+                placeholder="Paste client\'s hardware fingerprint hash"
                 value={fingerprint}
                 onChange={e => setFingerprint(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/55 font-mono"
@@ -1156,14 +1332,14 @@ function LicenseKeyManager() {
                 type="checkbox"
                 checked={perpetual}
                 onChange={e => setPerpetual(e.target.checked)}
-                className="rounded border-slate-300 dark:border-slate-700 text-teal-600 focus:ring-teal-500"
+                className="rounded border-slate-300 dark:border-slate-700 text-teal-650 focus:ring-teal-500"
               />
               <span>Perpetual (No Expiry Date)</span>
             </label>
 
             {!perpetual && (
               <div className="flex items-center gap-2">
-                <label className="text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Expiry Date:</label>
+                <label className="text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Expiry Date:</label>
                 <input
                   type="date"
                   value={expiryDate}

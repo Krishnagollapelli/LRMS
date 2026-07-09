@@ -68,6 +68,73 @@ licensingRouter.post('/generate', authenticateToken, async (req: Request, res: R
   }
 });
 
+// List registered devices (Super Admin use only)
+licensingRouter.get('/devices', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
+    }
+    const devices = await LicensingService.listDevices();
+    res.json(devices);
+  } catch (error: any) {
+    logger.error('Error listing devices:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve device (Super Admin use only)
+licensingRouter.post('/devices/:id/approve', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
+    }
+    const { id } = req.params;
+    const { labName, expiryDate } = req.body;
+    if (!labName) {
+      return res.status(400).json({ error: 'Laboratory name is required.' });
+    }
+    const device = await LicensingService.approveDevice(id, labName, expiryDate);
+    res.json({ success: true, device });
+  } catch (error: any) {
+    logger.error('Error approving device:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Block device (Super Admin use only)
+licensingRouter.post('/devices/:id/block', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
+    }
+    const { id } = req.params;
+    const device = await LicensingService.blockDevice(id);
+    res.json({ success: true, device });
+  } catch (error: any) {
+    logger.error('Error blocking device:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete device registration (Super Admin use only)
+licensingRouter.delete('/devices/:id', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
+    }
+    const { id } = req.params;
+    await LicensingService.deleteDevice(id);
+    res.json({ success: true });
+  } catch (error: any) {
+    logger.error('Error deleting device:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Middleware to protect operational routes
 export async function licenseGuard(req: Request, res: Response, next: NextFunction) {
   // Allow licensing endpoints themselves to pass

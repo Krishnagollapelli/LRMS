@@ -62,12 +62,50 @@ export class LicensingService {
    */
   public static async verifyLicense(): Promise<{ isValid: boolean; message: string; details?: any }> {
     try {
+      const localFingerprint = await this.getMachineFingerprint();
+
+      // 1. Check database-driven DeviceActivation first
+      const dbDevice = await prisma.deviceActivation.findUnique({
+        where: { fingerprint: localFingerprint }
+      });
+
+      if (dbDevice) {
+        if (dbDevice.status === 'APPROVED') {
+          if (dbDevice.expiryDate && new Date(dbDevice.expiryDate).getTime() < Date.now()) {
+            return { isValid: false, message: `License subscription expired on ${new Date(dbDevice.expiryDate).toLocaleDateString()}.` };
+          }
+          return {
+            isValid: true,
+            message: 'License active & verified (Cloud Approved).',
+            details: { labName: dbDevice.labName, expiryDate: dbDevice.expiryDate ? dbDevice.expiryDate.toISOString() : 'Perpetual' }
+          };
+        } else if (dbDevice.status === 'BLOCKED') {
+          return { isValid: false, message: 'This device hardware fingerprint has been BLOCKED by the Super Admin.' };
+        }
+      } else {
+        // Auto-register this device as PENDING on first verify attempt
+        try {
+          const hostname = process.env.COMPUTERNAME || process.env.HOSTNAME || 'Unknown Laptop';
+          await prisma.deviceActivation.create({
+            data: {
+              labName: `Unactivated Device (${hostname})`,
+              fingerprint: localFingerprint,
+              status: 'PENDING'
+            }
+          });
+          logger.info(`Auto-registered new hardware fingerprint as PENDING: ${localFingerprint}`);
+        } catch (e) {
+          // Ignore unique constraint race conditions
+        }
+      }
+
+      // 2. Fallback to settings-based offline Base64 activation key validation
       const setting = await prisma.setting.findUnique({
         where: { key: 'license_key' }
       });
 
       if (!setting) {
-        return { isValid: false, message: 'No license key activated. Please contact your software provider.' };
+        return { isValid: false, message: 'No active license. Connection registered. Please contact your software provider.' };
       }
 
       const licenseObj = JSON.parse(setting.value);
@@ -77,7 +115,6 @@ export class LicensingService {
         return { isValid: false, message: 'Invalid license signature format.' };
       }
 
-      // Re-sign contents to verify authenticity
       const contentToSign = JSON.stringify({ labName, expiryDate, fingerprint, perpetual });
       const expectedSignature = crypto.createHmac('sha256', this.SECRET_KEY).update(contentToSign).digest('hex');
 
@@ -85,13 +122,10 @@ export class LicensingService {
         return { isValid: false, message: 'License key signature mismatch. Code tampering detected.' };
       }
 
-      // Validate fingerprint match
-      const localFingerprint = await this.getMachineFingerprint();
       if (fingerprint !== localFingerprint) {
         return { isValid: false, message: 'License is bound to another machine. Transfer required.' };
       }
 
-      // Validate expiry date if not perpetual
       if (!perpetual) {
         const exp = new Date(expiryDate);
         if (exp.getTime() < Date.now()) {
@@ -168,5 +202,37 @@ export class LicensingService {
     payload.signature = signature;
 
     return Buffer.from(JSON.stringify(payload)).toString('base64');
+  }
+
+  public static async listDevices() {
+    return prisma.deviceActivation.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  public static async approveDevice(id: string, labName: string, expiryDate?: string) {
+    return prisma.deviceActivation.update({
+      where: { id },
+      data: {
+        labName,
+        status: 'APPROVED',
+        expiryDate: expiryDate ? new Date(expiryDate) : null
+      }
+    });
+  }
+
+  public static async blockDevice(id: string) {
+    return prisma.deviceActivation.update({
+      where: { id },
+      data: {
+        status: 'BLOCKED'
+      }
+    });
+  }
+
+  public static async deleteDevice(id: string) {
+    return prisma.deviceActivation.delete({
+      where: { id }
+    });
   }
 }
