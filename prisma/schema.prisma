@@ -1,0 +1,250 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  username  String    @unique
+  password  String
+  name      String
+  role      String    // "ADMIN" | "TECHNICIAN"
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // For soft deletes
+  auditLogs AuditLog[]
+}
+
+model Doctor {
+  id                 String    @id @default(uuid())
+  name               String
+  qualification      String
+  hospital           String
+  registrationNumber String
+  phone              String
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  reports            Report[]
+  visits             Visit[]
+
+  @@index([name])
+}
+
+model Patient {
+  id        String    @id // E.g. PAT-2026-00001
+  name      String
+  age       Int?
+  ageUnit   String?   // "YEARS" | "MONTHS" | "DAYS"
+  gender    String?   // "MALE" | "FEMALE" | "OTHER"
+  phone     String?
+  remarks   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  reports   Report[]
+  visits    Visit[]
+
+  @@index([name])
+  @@index([phone])
+}
+
+model Visit {
+  id        String    @id // E.g. VIS-YYYYMMDD-XXXX
+  patientId String
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  doctorId  String
+  doctor    Doctor    @relation(fields: [doctorId], references: [id])
+  visitDate DateTime  @default(now())
+  status    String    @default("WAITING") // "WAITING" | "SAMPLE_COLLECTED" | "TESTING" | "DRAFT" | "PENDING_VERIFICATION" | "VERIFIED" | "PRINTED" | "DELIVERED"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  reports   Report[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+}
+
+model Unit {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  parameters  Parameter[]
+}
+
+model Parameter {
+  id               String           @id @default(uuid())
+  name             String
+  shortCode        String
+  aliases          String?          // Comma-separated or JSON array string
+  category         String
+  unitId           String
+  unit             Unit             @relation(fields: [unitId], references: [id])
+  decimalPrecision Int              @default(2)
+  description      String?
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+  referenceRanges  ReferenceRange[]
+  testParameters   TestParameter[]
+  reportResults    ReportResult[]
+}
+
+model ReferenceRange {
+  id          String    @id @default(uuid())
+  parameterId String
+  parameter   Parameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  gender      String    // "MALE" | "FEMALE" | "ALL"
+  ageMin      Float     // in years
+  ageMax      Float     // in years
+  minVal      Float?
+  maxVal      Float?
+  displayText String
+  condition   String    @default("ADULT") // "ADULT" | "CHILD" | "PREGNANCY" | "ELDERLY"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model Test {
+  id             String          @id @default(uuid())
+  name           String
+  shortCode      String
+  category       String
+  defaultPrice   Float           @default(100)
+  isActive       Boolean         @default(true)
+  shortcut       String?
+  description    String?
+  displayOrder   Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  testParameters TestParameter[]
+  reportTests    ReportTest[]
+}
+
+model TestParameter {
+  testId      String
+  parameterId String
+  sortOrder   Int
+  test        Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  parameter   Parameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+
+  @@id([testId, parameterId])
+}
+
+model Report {
+  id               String            @id // E.g. REP-20260708-0001
+  visitId          String?
+  visit            Visit?            @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  patientId        String
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  doctorId         String
+  doctor           Doctor            @relation(fields: [doctorId], references: [id])
+  sampleId         String
+  registrationDate DateTime
+  status           String            @default("PENDING") // "DRAFT" | "PENDING_VERIFICATION" | "VERIFIED" | "PRINTED" | "CANCELLED"
+  remarks          String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  reportTests      ReportTest[]
+  results          ReportResult[]
+  deliveryHistory  DeliveryHistory[]
+  billing          Billing?
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@index([registrationDate])
+}
+
+model ReportTest {
+  reportId     String
+  testId       String
+  report       Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  test         Test   @relation(fields: [testId], references: [id], onDelete: Cascade)
+  defaultPrice Float  @default(0)
+  chargedPrice Float  @default(0)
+
+  @@id([reportId, testId])
+}
+
+model ReportResult {
+  id                 String    @id @default(uuid())
+  reportId           String
+  report             Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  parameterId        String
+  parameter          Parameter @relation(fields: [parameterId], references: [id])
+  value              String
+  unitText           String
+  referenceRangeText String
+  isAbnormal         Boolean   @default(false)
+  remarks            String?
+}
+
+model DeliveryHistory {
+  id           String   @id @default(uuid())
+  reportId     String
+  report       Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  recipient    String
+  channel      String   // "EMAIL" | "WHATSAPP"
+  status       String   // "SENT" | "FAILED"
+  errorMessage String?
+  sentAt       DateTime @default(now())
+}
+
+model AnalyzerProfile {
+  id             String   @id @default(uuid())
+  name           String
+  model          String
+  connectionType String   // "SERIAL" | "TCP" | "FILE"
+  config         String   // JSON configuration string mapping machine channels to parameters
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String // JSON string value
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String
+  ipAddress String?
+  timestamp DateTime @default(now())
+}
+
+model Billing {
+  id              String   @id @default(uuid())
+  reportId        String   @unique
+  report          Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  originalPrice   Float
+  discount        Float    @default(0)
+  discountPercent Float    @default(0)
+  finalPrice      Float
+  paidAmount      Float    @default(0)
+  balance         Float    @default(0)
+  paymentStatus   String   // "PAID" | "PARTIAL" | "UNPAID"
+  paymentMethod   String   // "CASH" | "UPI" | "CARD" | "CREDIT" | "MIXED"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

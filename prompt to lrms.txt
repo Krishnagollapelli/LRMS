@@ -1,0 +1,3302 @@
+You are a Senior Software Architect, Product Designer and Full Stack Engineer.
+
+Continue improving the existing Laboratory Report Management System instead of rebuilding it from scratch.
+
+The current project already exists. Preserve the existing project structure, technology stack and architecture while improving every module until it becomes a commercial production-ready application.
+
+The goal of this software is not to create a new laboratory workflow.
+
+The goal is to replace an existing legacy laboratory desktop software while preserving the technicians' existing workflow, keyboard habits and speed.
+
+Every improvement must make technicians work faster without forcing them to learn a completely different interface.
+
+Think like a laboratory technician who processes hundreds of patients every day.
+
+Every screen, every shortcut and every workflow should reduce typing, reduce clicks and reduce waiting time.
+
+The software must be Desktop First.
+
+Technology Stack
+
+Electron
+
+React 18
+
+TypeScript
+
+Vite
+
+Tailwind CSS
+
+shadcn/ui
+
+Node.js
+
+Express.js
+
+Prisma ORM
+
+SQLite
+
+Electron Builder
+
+pdf-lib
+
+Fuse.js
+
+Zod
+
+React Hook Form
+
+TanStack Query
+
+TanStack Table
+
+Zustand
+
+The software must be fully offline.
+
+Internet should only be required for optional features such as WhatsApp, Email and AI parameter suggestions.
+
+Never require internet for report generation.
+
+The architecture must remain modular.
+
+Separate UI, Business Logic, Medical Knowledge, Database and Desktop functionality.
+
+Medical logic must never exist inside UI components.
+
+Business logic must never exist inside React pages.
+
+All medical operations should pass through one centralized Medical Knowledge Engine.
+
+The software should feel exactly like the old laboratory software but modernized.
+
+Do not redesign the laboratory workflow.
+
+Improve it.
+
+Every keyboard shortcut currently used by technicians should continue to work.
+
+Enter should move to the next logical field.
+
+Shift+Enter should move backwards.
+
+Ctrl+P prints.
+
+Ctrl+S saves draft.
+
+Esc closes dialogs.
+
+Arrow keys navigate search results.
+
+Mouse usage should be optional.
+
+The application should open directly into the dashboard after login.
+
+The dashboard should immediately show
+
+Today's Patients
+
+Pending Reports
+
+Draft Reports
+
+Verification Pending
+
+Completed Reports
+
+Printed Reports
+
+Frequently Used Tests
+
+Recent Reports
+
+Laboratory Queue
+
+The dashboard should load instantly.
+
+No loading delays.
+
+The application should use local caching wherever possible.
+
+The software has four user levels.
+
+Developer
+
+Super Admin
+
+Lab Admin
+
+Technician
+
+Developer is only for software ownership.
+
+Developer controls licensing.
+
+Developer activates laboratories.
+
+Developer transfers licenses.
+
+Developer manages subscriptions.
+
+Developer never performs laboratory work.
+
+Super Admin belongs to the laboratory owner.
+
+Super Admin controls
+
+Users
+
+Doctors
+
+Tests
+
+Parameters
+
+Units
+
+Templates
+
+Laboratory Details
+
+Printer
+
+SMTP
+
+WhatsApp
+
+API Keys
+
+Backup
+
+Restore
+
+Theme
+
+Medical Libraries
+
+AI Configuration
+
+Billing Settings
+
+Super Admin has complete control.
+
+Lab Admin manages daily laboratory operations.
+
+Technicians cannot access settings.
+
+Technicians only perform operational work.
+
+Technician workflow must remain extremely simple.
+
+Login
+
+Register Patient
+
+Select Tests
+
+Wait for Results
+
+Open Pending Report
+
+Enter Results
+
+Save Draft if needed
+
+Verify if permitted
+
+Generate PDF
+
+Print
+
+Send WhatsApp
+
+Finish
+
+Nothing more.
+
+Patient registration should be redesigned for speed.
+
+Only Patient Name is mandatory.
+
+Everything else is optional.
+
+Optional fields
+
+Age
+
+Age Unit
+
+Gender
+
+Phone Number
+
+Referring Doctor
+
+Default Referring Doctor should always be Self.
+
+If technician changes it, remember the last selected doctor for future registrations.
+
+Never ask repeatedly if the same doctor is used throughout the day.
+
+Remove Address.
+
+Remove Clinical Remarks.
+
+Remove Email.
+
+Phone Number should never appear on printed laboratory reports.
+
+Phone Number exists only for
+
+Searching patients
+
+Sending WhatsApp
+
+Sending Bills
+
+Future communication
+
+When optional fields are empty
+
+The printed report should simply leave those positions blank.
+
+Never print labels with empty values.
+
+Example
+
+If Age is empty
+
+Do not print
+
+Age :
+
+Simply leave the space blank exactly like the existing laboratory software.
+
+The registration workflow must be keyboard first.
+
+Technician types Patient Name.
+
+Presses Enter.
+
+Moves to Age.
+
+Presses Enter.
+
+Moves to Gender.
+
+Presses Enter.
+
+Moves to Phone.
+
+Presses Enter.
+
+Moves to Doctor.
+
+Presses Enter.
+
+Patient automatically saves.
+
+Immediately open Test Selection.
+
+Never require clicking Save.
+
+Never require clicking Next.
+
+The entire workflow should be completed using only the keyboard.
+
+Do not redesign this workflow because laboratory technicians already have years of muscle memory using the existing software.
+
+Preserve their habits while making the software faster and more reliable.
+Continue improving the existing Laboratory Report Management System without changing the workflow that technicians already know.
+
+The Test Library is one of the most important modules of the entire software.
+
+The software should never hardcode laboratory tests.
+
+Every laboratory should be able to configure its own tests.
+
+The Test Library should be completely dynamic.
+
+Every Test should contain
+
+Test ID
+
+Test Code
+
+Test Name
+
+Aliases
+
+Category
+
+Default Price
+
+Default Report Order
+
+Status
+
+Favorite
+
+Description
+
+Created Date
+
+Modified Date
+
+Associated Parameters
+
+Analyzer Compatibility
+
+Default Template
+
+The Test Code should be unique.
+
+Example
+
+CBC
+
+LFT
+
+KFT
+
+FBS
+
+PPBS
+
+CRP
+
+ESR
+
+TSH
+
+Users should be able to create tests manually or using AI assistance.
+
+When the user creates a new test manually,
+
+they enter
+
+Test Name
+
+Test Code
+
+Category
+
+Price
+
+Shortcut
+
+Description
+
+After saving,
+
+they can start adding parameters.
+
+When the user chooses AI Assisted Test Creation,
+
+the application should intelligently suggest the standard parameter list for that investigation.
+
+Example
+
+User enters
+
+Complete Blood Count
+
+AI should suggest
+
+CBC
+
+Hemoglobin
+
+RBC
+
+WBC
+
+Platelets
+
+HCT
+
+MCV
+
+MCH
+
+MCHC
+
+RDW
+
+MPV
+
+PDW
+
+PCT
+
+Neutrophils
+
+Lymphocytes
+
+Monocytes
+
+Eosinophils
+
+Basophils
+
+The technician should review the suggested parameters.
+
+They may
+
+Accept
+
+Remove
+
+Add
+
+Reorder
+
+Edit
+
+Save
+
+The application must never automatically save AI generated data without user confirmation.
+
+Every test should have a shortcut.
+
+Example
+
+CBC
+
+LFT
+
+KFT
+
+The shortcut should be editable.
+
+Every laboratory has different naming conventions.
+
+The software should never force a predefined shortcut.
+
+The software should remember recently used tests.
+
+Example
+
+Recent
+
+CBC
+
+LFT
+
+CRP
+
+These should appear at the top of the search popup.
+
+The software should also support Favourite Tests.
+
+Technicians can pin frequently used investigations.
+
+Favorites always appear first.
+
+The Test Selection popup should be optimized for keyboard usage.
+
+No mouse should be required.
+
+Workflow
+
+Patient Registration
+
+↓
+
+Test Search Popup
+
+↓
+
+Type CBC
+
+↓
+
+Arrow Down
+
+↓
+
+Enter
+
+↓
+
+CBC Selected
+
+↓
+
+Type CRP
+
+↓
+
+Enter
+
+↓
+
+CRP Selected
+
+↓
+
+Ctrl + Enter
+
+↓
+
+Open Report Entry
+
+Support searching using
+
+Test Code
+
+Test Name
+
+Aliases
+
+Category
+
+Recently Used
+
+Favorites
+
+Fuzzy Search
+
+Partial Search
+
+Searching should be instant.
+
+Never show long loading screens.
+
+The software should support selecting multiple tests for one patient.
+
+One patient may have
+
+CBC
+
+CRP
+
+Widal
+
+Malaria
+
+LFT
+
+All selected tests should automatically generate one pending report session.
+
+Do not immediately ask for result entry.
+
+The patient should move into the Pending Queue.
+
+This reflects the real laboratory workflow because results usually arrive later.
+
+The Parameter Library is another core module.
+
+The Parameter Library must be reusable.
+
+Never recreate parameters every time.
+
+Every parameter should exist only once in the Medical Knowledge Engine.
+
+Each parameter contains
+
+Parameter ID
+
+Parameter Name
+
+Short Code
+
+Aliases
+
+Category
+
+Default Unit
+
+Reference Range
+
+Decimal Precision
+
+Display Order
+
+Analyzer Mapping
+
+Description
+
+Status
+
+Created Date
+
+Modified Date
+
+Users should be able to
+
+Search Existing Parameters
+
+Reuse Existing Parameters
+
+Create New Parameters
+
+Edit Parameters
+
+Deactivate Parameters
+
+Duplicate Parameters if required
+
+Parameter creation should always begin with Search.
+
+Never show an empty creation form immediately.
+
+Workflow
+
+Click Add Parameter
+
+↓
+
+Search Existing Library
+
+↓
+
+If Found
+
+↓
+
+Reuse
+
+↓
+
+If Not Found
+
+↓
+
+Create New
+
+The search should support
+
+Parameter Name
+
+Short Code
+
+Aliases
+
+Partial Words
+
+Fuzzy Search
+
+Example
+
+Typing
+
+Hb
+
+Should Suggest
+
+Hemoglobin
+
+Typing
+
+Hem
+
+Should Suggest
+
+Hemoglobin
+
+Typing
+
+Plate
+
+Should Suggest
+
+Platelets
+
+Typing
+
+Sugar
+
+Should Suggest
+
+Glucose
+
+The application should intelligently prevent duplicates.
+
+If the technician tries to create
+
+Hb
+
+while
+
+Hemoglobin
+
+already exists,
+
+show
+
+Possible Existing Parameter
+
+Hemoglobin
+
+Code HGB
+
+Unit g/dL
+
+Buttons
+
+Use Existing
+
+Create Anyway
+
+The application should encourage reuse instead of duplicate creation.
+
+Every parameter belongs to the Medical Knowledge Engine.
+
+Templates should never store duplicated parameter definitions.
+
+The Medical Knowledge Engine is the brain of the software.
+
+It owns
+
+Master Test Library
+
+Master Parameter Library
+
+Master Unit Library
+
+Reference Range Library
+
+Aliases
+
+Analyzer Profiles
+
+Parameter Validation
+
+Parameter Normalization
+
+Duplicate Detection
+
+AI Resolver
+
+Search Engine
+
+Reference Profiles
+
+No other module should maintain medical definitions independently.
+
+Templates
+
+Reports
+
+PDF Generator
+
+Billing
+
+Search
+
+Settings
+
+should always request medical information from the Medical Knowledge Engine.
+
+The Medical Knowledge Engine should ship with a built-in standard medical library.
+
+Include more than one thousand commonly used laboratory parameters covering
+
+Hematology
+
+Clinical Pathology
+
+Biochemistry
+
+Microbiology
+
+Serology
+
+Immunology
+
+Hormones
+
+Tumor Markers
+
+Urine Analysis
+
+Stool Examination
+
+Electrolytes
+
+Lipid Profile
+
+Thyroid
+
+Liver Function
+
+Kidney Function
+
+Diabetes
+
+Cardiac Markers
+
+The application should first search
+
+Local Laboratory Library
+
+↓
+
+Built-in Medical Library
+
+↓
+
+AI Suggestion
+
+↓
+
+User Confirmation
+
+↓
+
+Save to Local Library
+
+Never allow AI to directly create medical data without technician approval.
+
+Every unit should also be standardized.
+
+The software should contain a reusable Unit Library.
+
+Examples
+
+g/dL
+
+mg/dL
+
+mmol/L
+
+IU/L
+
+%
+
+fL
+
+pg
+
+×10³/µL
+
+×10⁶/µL
+
+Cells/cumm
+
+Lakhs/cumm
+
+If the technician enters
+
+gm/dl
+
+Suggest
+
+g/dL
+
+If the technician enters
+
+grams/dl
+
+Suggest
+
+g/dL
+
+If the technician enters
+
+million/cumm
+
+Suggest
+
+×10⁶/µL
+
+Ask for confirmation before saving.
+
+Reference ranges belong to Parameters.
+
+Never store reference ranges inside templates.
+
+Reference ranges may support
+
+Adult Male
+
+Adult Female
+
+Children
+
+Pregnancy
+
+Custom Laboratory Values
+
+When a parameter is reused,
+
+its Unit
+
+Reference Range
+
+Decimal Precision
+
+Aliases
+
+should automatically load.
+
+The technician should only enter Result Values.
+
+The application should also support Analyzer Profiles.
+
+Examples
+
+Mindray
+
+Sysmex
+
+Horiba
+
+Erba
+
+Each analyzer profile can define
+
+Supported Tests
+
+Parameter Mapping
+
+Default Units
+
+Default Templates
+
+Communication Type
+
+Even if analyzer integration is not implemented now,
+
+the architecture should support future integration without redesigning the database.
+
+All Test Library, Parameter Library and Medical Knowledge modules must be fast, keyboard-friendly, reusable and optimized for laboratories processing hundreds of reports every day.
+The Report Entry module is the heart of the entire application.
+
+This module should be designed around how laboratory technicians actually work.
+
+Do not redesign the existing workflow.
+
+Improve it.
+
+After patient registration and test selection, the patient should automatically move into the Pending Queue.
+
+The technician usually does not enter results immediately because laboratory machines generate results later.
+
+Workflow
+
+Patient Registration
+
+↓
+
+Select Tests
+
+↓
+
+Pending Queue
+
+↓
+
+Machine Testing
+
+↓
+
+Open Pending Report
+
+↓
+
+Enter Results
+
+↓
+
+Save Draft if required
+
+↓
+
+Verification
+
+↓
+
+Generate PDF
+
+↓
+
+Print
+
+↓
+
+Send WhatsApp
+
+↓
+
+Complete
+
+The Pending Queue should become the technician's working screen.
+
+It should display
+
+Patient Name
+
+Visit Number
+
+Registration Time
+
+Selected Tests
+
+Current Status
+
+Assigned Technician
+
+Priority
+
+Sorting
+
+Searching
+
+Filtering
+
+The technician should never search manually through completed reports while entering new results.
+
+The Pending Queue should automatically display today's unfinished work.
+
+Support filtering by
+
+Today's Reports
+
+Yesterday
+
+Pending
+
+Draft
+
+Verification Pending
+
+Completed
+
+Printed
+
+Delivered
+
+Searching should support
+
+Patient Name
+
+Patient Number
+
+Phone Number
+
+Visit Number
+
+Report Number
+
+The Result Entry screen should behave like Microsoft Excel.
+
+The cursor should automatically focus on the first editable result field.
+
+When Enter is pressed,
+
+move to the next result field.
+
+When Shift + Enter is pressed,
+
+move to the previous field.
+
+Arrow Keys should move naturally between fields.
+
+Tab should move to the next logical input.
+
+Every field should automatically select its value when focused.
+
+The technician should never need to use the mouse.
+
+If multiple tests exist,
+
+they should appear one after another in the same report entry page.
+
+Example
+
+CBC
+
+↓
+
+CRP
+
+↓
+
+LFT
+
+↓
+
+Widal
+
+↓
+
+Malaria
+
+The technician should simply continue entering values.
+
+The software should automatically maintain report formatting.
+
+Each parameter row should contain
+
+Parameter Name
+
+Result
+
+Unit
+
+Reference Range
+
+Flag
+
+Remarks
+
+The technician normally edits only the Result column.
+
+Everything else should automatically load.
+
+Reference Range comes from the Medical Knowledge Engine.
+
+Unit comes from the Medical Knowledge Engine.
+
+Decimal Precision comes from the Medical Knowledge Engine.
+
+If a result exceeds the reference range,
+
+automatically calculate
+
+High
+
+Low
+
+Normal
+
+Display using configurable highlighting.
+
+The laboratory should decide whether abnormal values appear
+
+Bold
+
+Red
+
+Star
+
+Arrow
+
+Or no highlighting.
+
+Never hardcode report styles.
+
+Support Draft Reports.
+
+Technicians frequently leave reports incomplete.
+
+Reasons include
+
+Machine still processing
+
+Emergency patients
+
+Lunch break
+
+Power interruption
+
+Doctor consultation
+
+Save Draft should preserve
+
+Cursor Position
+
+Entered Results
+
+Modified Parameters
+
+Temporary Reference Range Overrides
+
+Current Test Position
+
+Current Scroll Position
+
+Draft should resume exactly where work stopped.
+
+Auto Save should occur
+
+Every 20-30 seconds
+
+When window loses focus
+
+When application closes
+
+When navigation changes
+
+When system shuts down unexpectedly
+
+Crash recovery should automatically reopen unfinished drafts.
+
+No entered value should ever be lost.
+
+Report Verification should be a separate workflow.
+
+Result Entry
+
+↓
+
+Pending Verification
+
+↓
+
+Verified
+
+↓
+
+Printed
+
+Only authorized users may verify reports.
+
+Verification screen should display
+
+Entered Results
+
+Reference Ranges
+
+Patient Information
+
+Doctor
+
+Generated Preview
+
+Verifier Remarks
+
+Digital Signature
+
+Verification Time
+
+Verified By
+
+Once verified,
+
+lock report editing.
+
+If editing is required,
+
+create a new revision instead of silently modifying verified reports.
+
+Historical reports must never change.
+
+When PDF is generated,
+
+store a complete immutable snapshot.
+
+Never regenerate historical reports using current templates.
+
+Always use the snapshot saved during report generation.
+
+This guarantees historical consistency even if templates are modified later.
+
+Billing should be integrated into Report Entry.
+
+Billing should not exist during patient registration.
+
+Every Test inside the Test Library contains
+
+Default Price
+
+When technician selects
+
+CBC
+
+Default Price automatically loads.
+
+Technician may modify
+
+Charged Amount
+
+Discount
+
+Discount Percentage
+
+The software should automatically calculate
+
+Original Amount
+
+Discount
+
+Final Amount
+
+Balance
+
+Billing should support multiple tests.
+
+Example
+
+CBC
+
+300
+
+CRP
+
+500
+
+LFT
+
+600
+
+Total
+
+1400
+
+Discount
+
+200
+
+Final Amount
+
+1200
+
+The software should automatically calculate everything.
+
+Generate two different printable documents.
+
+Laboratory Report
+
+Billing Receipt
+
+They should never be combined.
+
+The Billing Receipt should contain
+
+Laboratory Name
+
+Patient Name
+
+Visit Number
+
+Date
+
+Tests
+
+Individual Prices
+
+Discount
+
+Grand Total
+
+Payment Status
+
+The software should support
+
+Cash
+
+UPI
+
+Card
+
+Credit
+
+Mixed Payment
+
+Future payment gateways should be supported without changing existing billing architecture.
+
+Printing is one of the most important modules.
+
+Do not create decorative PDF layouts.
+
+The laboratory already owns professionally printed stationery.
+
+The software should print only inside predefined blank areas.
+
+The software should support coordinate based printing.
+
+Each printable field should have configurable coordinates.
+
+Example
+
+Patient Name
+
+X Position
+
+Y Position
+
+Age
+
+X Position
+
+Y Position
+
+Doctor
+
+X Position
+
+Y Position
+
+Each laboratory should adjust margins without modifying code.
+
+Support
+
+Top Margin
+
+Left Margin
+
+Font
+
+Font Size
+
+Line Height
+
+Character Spacing
+
+Page Offset
+
+Printer Offset
+
+Preview should accurately match printed paper.
+
+The software should never draw unnecessary borders or tables unless enabled.
+
+The report should preserve clean white spacing exactly like existing laboratory reports.
+
+Optional fields should behave intelligently.
+
+If Age is empty,
+
+leave blank.
+
+If Gender is empty,
+
+leave blank.
+
+If Doctor is empty,
+
+leave blank.
+
+Never print labels with empty values.
+
+The printed report should appear identical to the currently used paper format.
+
+The objective is to replace the old software without forcing laboratories to replace their existing printed stationery.
+
+The software should support multiple printable layouts.
+
+Each laboratory may configure
+
+Default Layout
+
+Compact Layout
+
+Hospital Layout
+
+Clinic Layout
+
+Preprinted Stationery Layout
+
+Layout switching should never require code changes.
+
+It should only require selecting another layout inside settings.
+
+The PDF engine should be completely configurable.
+
+Every printable field should support repositioning through settings instead of modifying source code.
+The software should have a strict Role Based Access Control (RBAC) system.
+
+There should be four user roles.
+
+Developer
+
+Super Admin
+
+Lab Admin
+
+Technician
+
+Developer is the software owner.
+
+Developer controls software licensing.
+
+Developer can activate laboratories.
+
+Developer can deactivate laboratories.
+
+Developer can transfer licenses.
+
+Developer can generate activation keys.
+
+Developer can monitor software versions.
+
+Developer cannot perform laboratory operations.
+
+Developer options should never appear inside the laboratory interface.
+
+Super Admin belongs to the laboratory owner.
+
+Super Admin has complete access to every module.
+
+Super Admin controls
+
+Users
+
+Doctors
+
+Test Library
+
+Parameter Library
+
+Medical Knowledge Engine
+
+Billing Settings
+
+Laboratory Details
+
+Report Templates
+
+Printer Settings
+
+WhatsApp Configuration
+
+SMTP Configuration
+
+Email Configuration
+
+API Keys
+
+Backup
+
+Restore
+
+Themes
+
+Application Settings
+
+License Information
+
+Super Admin can create Lab Admins.
+
+Super Admin can create Technicians.
+
+Super Admin can reset passwords.
+
+Super Admin can deactivate users.
+
+Lab Admin manages laboratory operations.
+
+Lab Admin cannot change licensing.
+
+Lab Admin cannot modify system level settings.
+
+Lab Admin can
+
+Manage Doctors
+
+Manage Tests
+
+Manage Parameters
+
+View Reports
+
+Manage Billing
+
+Manage Work Queue
+
+View Audit Logs
+
+Technicians perform daily work.
+
+Technicians should only have access to
+
+Patient Registration
+
+Pending Queue
+
+Report Entry
+
+Draft Reports
+
+Print Report
+
+Generate Bill
+
+Send WhatsApp
+
+Search Patients
+
+View Previous Reports
+
+Technicians should never access system settings.
+
+The application should remember the last logged in user.
+
+Support optional PIN based login for technicians to speed up switching between users.
+
+Authentication should support
+
+Username
+
+Password
+
+Remember Me
+
+Session Timeout
+
+Automatic Logout
+
+Inactive sessions should automatically logout after configurable time.
+
+Passwords should always be stored using bcrypt hashing.
+
+Never store plain text passwords.
+
+Every important action should be recorded inside Audit Logs.
+
+Audit Log should record
+
+User
+
+Date
+
+Time
+
+Module
+
+Action
+
+Previous Value
+
+New Value
+
+Reason
+
+Machine Name
+
+IP Address if available
+
+Example
+
+Krishna
+
+10:45 AM
+
+Modified CBC Price
+
+Old Price
+
+300
+
+New Price
+
+350
+
+Reason
+
+Laboratory Price Revision
+
+Audit Logs should never be editable.
+
+Only Super Admin can view complete audit history.
+
+The software should include a Configuration Engine.
+
+Medical information belongs to the Medical Knowledge Engine.
+
+Application configuration belongs to the Configuration Engine.
+
+Configuration Engine should manage
+
+Laboratory Name
+
+Laboratory Logo
+
+Laboratory Address
+
+Phone Numbers
+
+Footer
+
+Header
+
+Authorized Signatures
+
+Default Printer
+
+Printer Margins
+
+PDF Layout
+
+Default Referring Doctor
+
+Backup Settings
+
+Auto Save Interval
+
+Theme
+
+Language
+
+Date Format
+
+Time Format
+
+Currency
+
+SMTP
+
+WhatsApp
+
+Email
+
+API Keys
+
+Notification Settings
+
+Future Integrations
+
+Never hardcode these values.
+
+Everything should be configurable from the Super Admin Panel.
+
+SMTP Configuration should support
+
+SMTP Host
+
+SMTP Port
+
+Username
+
+Password
+
+Encryption
+
+SSL
+
+TLS
+
+Sender Name
+
+Reply Email
+
+Test Connection
+
+The application should allow sending reports through Email.
+
+Workflow
+
+Generate Report
+
+↓
+
+Generate PDF
+
+↓
+
+Attach PDF
+
+↓
+
+Send Email
+
+↓
+
+Store Delivery History
+
+WhatsApp Integration should be production ready.
+
+Never hardcode a specific provider.
+
+Create a Notification Engine.
+
+Notification Engine should support
+
+WhatsApp
+
+Email
+
+SMS (Future)
+
+Push Notification (Future)
+
+The Notification Engine should expose one common interface.
+
+Workflow
+
+Generate Report
+
+↓
+
+Notification Engine
+
+↓
+
+Selected Provider
+
+↓
+
+Send PDF
+
+↓
+
+Store Delivery Status
+
+Initially implement WhatsApp using Meta WhatsApp Business Cloud API.
+
+The provider should be replaceable later without modifying business logic.
+
+The application should maintain Delivery History.
+
+Store
+
+Patient
+
+Visit
+
+Report
+
+Delivery Method
+
+Recipient
+
+Time
+
+Status
+
+Error Message
+
+Retry Count
+
+Delivery history should be searchable.
+
+Support manual resend.
+
+Support automatic retry if internet is unavailable.
+
+All API Keys should be stored securely.
+
+Never expose API Keys to the frontend.
+
+Encrypt sensitive configuration before storing.
+
+The software should support complete Backup and Restore.
+
+Automatic Backup
+
+Manual Backup
+
+Restore Backup
+
+Export Database
+
+Import Database
+
+Backup should include
+
+SQLite Database
+
+Templates
+
+Settings
+
+Users
+
+Medical Library
+
+Generated PDFs
+
+Laboratory Configuration
+
+Support scheduled backups.
+
+Support configurable backup location.
+
+Support restoring backups from previous versions whenever possible.
+
+Before every application update,
+
+automatically create a backup.
+
+Implement Machine Binding.
+
+This software is commercially licensed.
+
+A laboratory license should only work on the activated computer.
+
+During first activation
+
+Generate a Machine Fingerprint using
+
+Motherboard Identifier
+
+CPU Identifier
+
+Disk Identifier
+
+Windows Machine GUID
+
+Generate a secure hash.
+
+Bind the license to this fingerprint.
+
+If the software is copied to another computer,
+
+the fingerprint changes.
+
+The software should refuse activation.
+
+Display
+
+License is not valid for this computer.
+
+Please contact your software provider.
+
+Do not depend only on MAC Address because it changes frequently.
+
+Machine Binding should tolerate small hardware changes but reject installation on completely different systems.
+
+Support License Transfer.
+
+Workflow
+
+Deactivate Old Machine
+
+↓
+
+Generate Transfer Request
+
+↓
+
+Developer Approval
+
+↓
+
+Activate New Machine
+
+License information should contain
+
+License ID
+
+Laboratory Name
+
+Registered Owner
+
+Machine Fingerprint
+
+Activation Date
+
+Expiry Date if subscription based
+
+Software Version
+
+Support perpetual licenses and subscription licenses.
+
+All license validation logic should be isolated inside a Licensing Service.
+
+Never mix licensing code with business logic.
+
+The software should support automatic application updates in future.
+
+The update system should verify
+
+License
+
+Version Compatibility
+
+Database Migration
+
+Backup Completion
+
+Only then continue update.
+
+Every module should follow Clean Architecture.
+
+UI Layer
+
+Business Layer
+
+Service Layer
+
+Repository Layer
+
+Database Layer
+
+Every feature should remain modular.
+
+Never duplicate business logic.
+
+Never duplicate validation logic.
+
+Never place database queries inside React components.
+
+Keep every module reusable.
+
+Write production quality code.
+
+Write scalable code.
+
+Write maintainable code.
+
+The software should feel extremely fast.
+
+Every screen transition should be smooth.
+
+Every search should feel instant.
+
+The objective is to build a commercial desktop application that laboratories can use daily for years without requiring workflow changes or retraining.
+Continue improving the existing project.
+
+Do not rewrite completed modules unless necessary.
+
+Preserve backward compatibility wherever possible.
+
+Every module should be production ready.
+
+Every component should be reusable.
+
+Every screen should have a single responsibility.
+
+Never duplicate code.
+
+Never duplicate business logic.
+
+Never duplicate validation.
+
+Follow Clean Architecture.
+
+Follow SOLID principles.
+
+Follow Repository Pattern.
+
+Follow Service Layer architecture.
+
+Every API should return consistent response structures.
+
+Separate
+
+UI
+
+Business Logic
+
+Medical Logic
+
+Database
+
+Configuration
+
+Licensing
+
+Notification
+
+Printing
+
+AI
+
+into independent modules.
+
+The frontend should remain lightweight.
+
+The frontend should only display information.
+
+Business logic belongs to backend services.
+
+Medical calculations belong to the Medical Knowledge Engine.
+
+Printing belongs to the Print Engine.
+
+Notifications belong to the Notification Engine.
+
+Configuration belongs to the Configuration Engine.
+
+Licensing belongs to the Licensing Engine.
+
+The application should support future modules without changing existing architecture.
+
+Examples
+
+OCR
+
+Barcode Scanner
+
+QR Code
+
+Analyzer Integration
+
+Cloud Sync
+
+Mobile Application
+
+Patient Portal
+
+Doctor Portal
+
+Online Report Download
+
+SMS
+
+Voice Input
+
+Every module should be pluggable.
+
+Never tightly couple modules.
+
+UI Design Philosophy
+
+Do not create a modern dashboard just for appearance.
+
+Design for speed.
+
+Every screen should minimize technician effort.
+
+Reduce clicks.
+
+Reduce scrolling.
+
+Reduce typing.
+
+Reduce unnecessary dialogs.
+
+Reduce unnecessary confirmations.
+
+Always remember the technician processes hundreds of reports every day.
+
+The software should feel responsive even on low-end computers.
+
+Every page should open almost instantly.
+
+Every search should be instant.
+
+Every table should support
+
+Sorting
+
+Filtering
+
+Searching
+
+Pagination
+
+Column Visibility
+
+Column Reordering
+
+Column Width Resize
+
+Sticky Header
+
+Keyboard Navigation
+
+Support dark mode and light mode.
+
+Support changing font size.
+
+Support high contrast mode for accessibility.
+
+Remember user preferences.
+
+Every popup should support keyboard navigation.
+
+Enter
+
+Escape
+
+Arrow Keys
+
+Tab
+
+Shift+Tab
+
+Ctrl shortcuts
+
+No popup should trap keyboard focus.
+
+Every confirmation dialog should clearly explain
+
+What is changing
+
+Why
+
+Whether it affects existing reports
+
+Provide Undo whenever possible.
+
+Deleting should normally perform soft delete.
+
+Avoid permanent deletion unless explicitly confirmed by Super Admin.
+
+Every search should support fuzzy searching.
+
+Searching should tolerate typing mistakes.
+
+Examples
+
+Hemoglobin
+
+Hb
+
+HGB
+
+Hemoglobn
+
+should still locate the correct parameter.
+
+Cache frequently accessed data.
+
+Examples
+
+Tests
+
+Parameters
+
+Doctors
+
+Units
+
+Settings
+
+Favorites
+
+Do not repeatedly query SQLite for static information.
+
+Load common data once.
+
+Refresh only when modified.
+
+All forms should validate immediately.
+
+Display meaningful validation messages.
+
+Never expose raw database errors.
+
+Log internal errors.
+
+Display user-friendly messages.
+
+Support global error handling.
+
+Support unexpected crash recovery.
+
+If application crashes
+
+Recover Drafts
+
+Recover Unsaved Reports
+
+Recover Pending Printing
+
+Recover Current Session
+
+Every important operation should have progress indicators.
+
+Examples
+
+Generating PDF
+
+Sending WhatsApp
+
+Sending Email
+
+Creating Backup
+
+Restoring Backup
+
+Importing Data
+
+Exporting Data
+
+Long operations should never freeze the UI.
+
+Run heavy tasks asynchronously whenever possible.
+
+The software should support localization in future.
+
+Avoid hardcoded text.
+
+Prepare for multiple languages.
+
+Prepare for different date formats.
+
+Prepare for different currencies.
+
+Support configurable numbering formats.
+
+Support configurable decimal precision.
+
+Support configurable paper sizes.
+
+Support configurable printers.
+
+Support multiple laboratories in future without redesigning architecture.
+
+All generated reports should have version tracking.
+
+Every report should contain
+
+Report Version
+
+Template Version
+
+Parameter Version
+
+Generation Timestamp
+
+Verification Timestamp
+
+Printed Timestamp
+
+Every generated PDF should be reproducible.
+
+Never regenerate historical reports from modified templates.
+
+Always use stored snapshots.
+
+The application should support future cloud synchronization.
+
+Even though current version is offline,
+
+architecture should allow synchronization later.
+
+Do not write code that assumes only one computer forever.
+
+Prepare synchronization interfaces.
+
+Do not implement them now.
+
+Prepare extension points.
+
+Performance Requirements
+
+Application startup under 5 seconds.
+
+Patient search under 100 milliseconds.
+
+Test search under 100 milliseconds.
+
+Parameter search under 100 milliseconds.
+
+PDF generation under 2 seconds.
+
+Application should comfortably handle
+
+100000 Patients
+
+500000 Reports
+
+5000 Parameters
+
+1000 Tests
+
+without noticeable slowdown.
+
+Database queries should be optimized.
+
+Use indexes wherever appropriate.
+
+Avoid unnecessary joins.
+
+Avoid loading unnecessary records.
+
+Use pagination.
+
+Keep memory usage low.
+
+Code Quality Requirements
+
+Use meaningful variable names.
+
+Use meaningful function names.
+
+Keep functions small.
+
+Keep components modular.
+
+Avoid giant files.
+
+Avoid deeply nested logic.
+
+Write readable code.
+
+Document important services.
+
+Add comments only where business logic is complex.
+
+Do not overcomment obvious code.
+
+Write TypeScript with strict typing.
+
+Avoid using any.
+
+Handle all edge cases.
+
+Never ignore errors.
+
+Create reusable utility functions.
+
+Create reusable hooks.
+
+Create reusable UI components.
+
+Follow consistent naming conventions across the entire project.
+
+Finally,
+
+treat this project as a commercial software product.
+
+Do not optimize for quick completion.
+
+Optimize for stability.
+
+Optimize for maintainability.
+
+Optimize for scalability.
+
+Optimize for real laboratory usage.
+
+Every design decision should answer one question.
+
+Will this make laboratory technicians faster while keeping the workflow they already know?
+
+If the answer is yes,
+
+implement it.
+
+If the answer is no,
+
+reconsider the implementation.
+Treat this project as a commercial desktop application that laboratories will use every day for many years.
+
+Do not generate code simply to satisfy requirements.
+
+Understand the workflow before implementing each feature.
+
+Whenever multiple implementation approaches are possible,
+
+always choose the solution that
+
+requires fewer clicks,
+
+reduces technician effort,
+
+reduces typing,
+
+preserves existing workflow,
+
+improves maintainability,
+
+supports future expansion,
+
+and does not break existing functionality.
+
+Do not redesign completed modules unnecessarily.
+
+Improve them.
+
+Refactor them only when it significantly improves architecture, maintainability or performance.
+
+Always preserve backward compatibility.
+
+Think before implementing every feature.
+
+Ask yourself
+
+Will this feature make laboratory work faster?
+
+Will technicians understand it immediately?
+
+Will this create confusion?
+
+Will this increase unnecessary complexity?
+
+Prefer simplicity over visual appearance.
+
+This application is a productivity tool.
+
+Speed is more important than animations.
+
+Keyboard navigation is more important than decorative UI.
+
+Every major workflow should be executable without touching the mouse.
+
+The software should always remember user behavior whenever appropriate.
+
+Examples
+
+Last Referring Doctor
+
+Last Printer
+
+Last Selected PDF Layout
+
+Favorite Tests
+
+Frequently Used Tests
+
+Recently Used Tests
+
+Last Window Position
+
+Last Screen
+
+Last Search
+
+Do not repeatedly ask the technician for information that rarely changes.
+
+Reduce repetitive work.
+
+AI should assist users.
+
+AI should never replace user decisions.
+
+AI suggestions must always require user confirmation.
+
+AI should help create
+
+Tests
+
+Parameters
+
+Reference Ranges
+
+Units
+
+Aliases
+
+Medical Categories
+
+Analyzer Mapping
+
+Never automatically overwrite existing medical data.
+
+Whenever AI suggests medical information,
+
+display confidence and source information if available.
+
+The technician must always have the final decision.
+
+Future AI modules should be easy to plug into the existing architecture.
+
+The Medical Knowledge Engine should expose services that AI can reuse.
+
+Never tightly couple AI with business logic.
+
+Every configuration should be editable from the Super Admin Panel.
+
+Avoid hardcoded values.
+
+Avoid hardcoded report layouts.
+
+Avoid hardcoded printers.
+
+Avoid hardcoded paths.
+
+Avoid hardcoded API providers.
+
+Everything configurable should be stored inside the Configuration Engine.
+
+The application should gracefully handle failures.
+
+Examples
+
+Printer Offline
+
+WhatsApp API Failure
+
+SMTP Failure
+
+Database Locked
+
+Missing Template
+
+Corrupted Backup
+
+Internet Not Available
+
+Machine License Invalid
+
+Power Failure
+
+Application Crash
+
+Never allow one failure to crash the entire application.
+
+Recover whenever possible.
+
+Display meaningful messages.
+
+Log technical details internally.
+
+Protect patient data.
+
+Protect laboratory configuration.
+
+Protect licensing information.
+
+Never expose sensitive configuration.
+
+Never expose passwords.
+
+Never expose API Keys.
+
+Encrypt confidential configuration.
+
+The project should include proper logging.
+
+Log application startup.
+
+Shutdown.
+
+User login.
+
+User logout.
+
+Patient creation.
+
+Report generation.
+
+Printing.
+
+WhatsApp sending.
+
+Email sending.
+
+Backup.
+
+Restore.
+
+Errors.
+
+Warnings.
+
+Performance bottlenecks.
+
+Logs should help diagnose future issues.
+
+The database should support future migration to PostgreSQL without major redesign.
+
+Keep repositories database independent wherever practical.
+
+SQLite is the current database because this is an offline desktop application.
+
+The architecture should still allow migration later.
+
+All important business operations should be transactional.
+
+Examples
+
+Patient Registration
+
+Report Generation
+
+Billing
+
+Verification
+
+Backup
+
+If one operation fails,
+
+rollback safely.
+
+Never leave partial records.
+
+Before every major modification,
+
+consider its impact on
+
+Existing Reports
+
+Existing Templates
+
+Existing Parameters
+
+Existing Tests
+
+Historical Data
+
+Backward Compatibility
+
+Historical reports must always remain unchanged.
+
+Generated reports are permanent medical documents.
+
+Never modify them silently.
+
+The application should support future extensions including
+
+Barcode Labels
+
+Sample Tracking
+
+Analyzer Integration
+
+Cloud Synchronization
+
+Doctor Portal
+
+Patient Portal
+
+Online Report Download
+
+SMS
+
+OCR Report Import
+
+Voice Assisted Entry
+
+Mobile Companion Application
+
+Design the architecture so these can be added without rewriting existing modules.
+
+Before completing development,
+
+verify every module manually.
+
+Patient Registration
+
+Doctor Management
+
+Test Library
+
+Parameter Library
+
+Medical Knowledge Engine
+
+Billing
+
+Pending Queue
+
+Draft Reports
+
+Verification
+
+Printing
+
+PDF Generation
+
+Backup
+
+Restore
+
+WhatsApp
+
+Email
+
+Search
+
+User Management
+
+Licensing
+
+Settings
+
+Audit Logs
+
+Configuration
+
+Ensure keyboard navigation works everywhere.
+
+Ensure every search performs correctly.
+
+Ensure generated PDFs match the laboratory's existing printed stationery.
+
+Ensure optional patient fields remain blank when not entered.
+
+Ensure billing calculations are accurate.
+
+Ensure discounts calculate correctly.
+
+Ensure Medical Knowledge Engine prevents duplicate parameters.
+
+Ensure template changes never modify historical reports.
+
+Ensure draft recovery works after unexpected shutdown.
+
+Ensure backups restore successfully.
+
+Ensure licensing prevents unauthorized installation on another computer.
+
+Finally,
+
+review the entire application as if you are delivering it to a paying laboratory customer.
+
+Look for missing workflows.
+
+Look for inconsistent UI.
+
+Look for unnecessary clicks.
+
+Look for duplicated code.
+
+Look for slow operations.
+
+Look for security risks.
+
+Look for maintainability problems.
+
+Improve them before considering the project complete.
+
+The objective is not simply to finish the software.
+
+The objective is to build a professional Laboratory Report Management System that laboratory technicians can trust, use comfortably every day, and continue using for many years without changing the workflow they have already mastered.
+
+Do not stop after implementing the requested features.
+
+Review the entire application.
+
+Find weaknesses.
+
+Improve them.
+
+Refactor where beneficial.
+
+Deliver a polished, production-ready, commercial-quality desktop application.
+Before implementing any feature, first understand how the current project works.
+
+Do not rewrite working modules.
+
+Improve existing modules instead of replacing them.
+
+Preserve backward compatibility.
+
+Never break an existing workflow while implementing a new one.
+
+Always choose maintainability over quick implementation.
+
+Always choose modularity over duplicated code.
+
+Never implement temporary solutions.
+
+Never hardcode values that may change in the future.
+
+If something can be configured by the laboratory, expose it through the Super Admin panel instead of modifying source code.
+
+Every module should have a single responsibility.
+
+Every feature should be reusable.
+
+Every business rule should exist only once.
+
+Avoid code duplication.
+
+Avoid UI duplication.
+
+Avoid repeated API logic.
+
+Review the complete project before implementing new features.
+
+Understand dependencies before modifying architecture.
+
+If improving one module affects another module, update both to maintain consistency.
+
+Do not leave partially implemented features.
+
+Every feature should be production ready before moving to the next one.
+
+Every CRUD module should be fully functional.
+
+Every search should support
+
+Instant Search
+
+Fuzzy Search
+
+Keyboard Navigation
+
+Sorting
+
+Filtering
+
+Recently Used
+
+Favorites where applicable.
+
+Every table should support
+
+Sorting
+
+Filtering
+
+Searching
+
+Pagination
+
+Responsive Layout
+
+Keyboard Navigation
+
+The UI should remain clean and simple.
+
+Avoid unnecessary animations.
+
+Avoid unnecessary dialogs.
+
+Avoid unnecessary confirmation messages.
+
+Reduce the number of clicks required for common laboratory tasks.
+
+Always prefer keyboard-first workflows.
+
+Always optimize for technicians processing hundreds of reports every day.
+
+The application should never lose user data.
+
+Implement proper error handling.
+
+Implement proper validation.
+
+Implement proper logging.
+
+Implement proper recovery mechanisms.
+
+Whenever implementing AI functionality,
+
+AI should only suggest.
+
+AI should never automatically modify medical information without user approval.
+
+Whenever implementing medical information,
+
+prefer existing standardized parameters instead of creating new ones.
+
+Always prevent duplicate medical data.
+
+Whenever implementing printing,
+
+remember that laboratories already use pre-printed stationery.
+
+Print only dynamic data.
+
+Do not generate decorative reports.
+
+Whenever implementing billing,
+
+billing should remain independent from laboratory reports.
+
+Generate separate billing documents.
+
+Whenever implementing notifications,
+
+use a provider-independent Notification Engine.
+
+Whenever implementing configuration,
+
+use the Configuration Engine.
+
+Whenever implementing medical logic,
+
+use the Medical Knowledge Engine.
+
+Whenever implementing licensing,
+
+use the Licensing Engine.
+
+Whenever implementing printing,
+
+use the Print Engine.
+
+Never mix responsibilities between modules.
+
+Keep the architecture clean.
+
+Before considering development complete,
+
+review the entire project.
+
+Look for
+
+Missing Features
+
+Broken Navigation
+
+Slow Operations
+
+UI Inconsistencies
+
+Database Problems
+
+Security Risks
+
+Duplicate Code
+
+Poor Naming
+
+Unused Components
+
+Memory Leaks
+
+Performance Bottlenecks
+
+Broken Keyboard Navigation
+
+Broken Printing
+
+Broken Billing
+
+Broken Search
+
+Broken Settings
+
+Fix everything before considering the software complete.
+
+Think like an experienced software architect.
+
+Think like a laboratory technician.
+
+Think like a product designer.
+
+Think like a commercial software company.
+
+Deliver software that can replace an existing laboratory management system without forcing technicians to change the workflow they have already mastered.
+Think about this project as a commercial product that will continuously evolve.
+
+Do not build features in isolation.
+
+Every feature should integrate naturally with the existing workflow.
+
+Every module should communicate through clean interfaces.
+
+Avoid direct dependencies between unrelated modules.
+
+Always ask
+
+Will another laboratory need this feature?
+
+Can this feature be configured instead of hardcoded?
+
+Can this feature be reused?
+
+Can this feature be extended later?
+
+If the answer is yes,
+
+design for extension.
+
+Do not optimize for today's requirements only.
+
+Optimize for the next five years.
+
+The software should become the central operating system of the laboratory.
+
+Everything should revolve around Patients, Visits, Tests and Reports.
+
+The software should feel intelligent.
+
+Predict user actions whenever possible.
+
+Examples
+
+Remember recently selected tests.
+
+Remember frequently used doctors.
+
+Remember last billing preferences.
+
+Remember preferred printer.
+
+Remember last report layout.
+
+Remember recently searched patients.
+
+Remember favorite investigations.
+
+Reduce repetitive work.
+
+Every module should help technicians work faster.
+
+The software should continuously reduce human effort.
+
+Never ask users to type information that already exists.
+
+Whenever possible,
+
+reuse existing data.
+
+Suggest existing values.
+
+Autocomplete frequently used values.
+
+Learn from previous usage.
+
+The software should become smarter over time without changing medical information automatically.
+
+The user should always remain in control.
+
+Every list inside the application should support
+
+Search
+
+Sort
+
+Filter
+
+Keyboard Navigation
+
+Bulk Operations where appropriate.
+
+Bulk operations should include
+
+Delete
+
+Deactivate
+
+Activate
+
+Export
+
+Import
+
+Print
+
+Whenever safe.
+
+Support importing laboratory data from
+
+CSV
+
+Excel
+
+Future database migration tools.
+
+Support exporting
+
+Patients
+
+Reports
+
+Billing
+
+Doctors
+
+Tests
+
+Parameters
+
+Audit Logs
+
+Settings
+
+Whenever generating reports,
+
+store complete metadata.
+
+Every report should know
+
+Who created it.
+
+Who modified it.
+
+Who verified it.
+
+Who printed it.
+
+Who shared it.
+
+When each action happened.
+
+Maintain a complete lifecycle history.
+
+Every module should support soft delete unless permanent deletion is absolutely necessary.
+
+Deleted records should remain recoverable by Super Admin.
+
+The software should maintain referential integrity.
+
+Never allow orphan records.
+
+Never delete data that is still referenced elsewhere.
+
+Support automatic database maintenance.
+
+Optimize database periodically.
+
+Clean temporary files.
+
+Archive old logs.
+
+Remove expired cache.
+
+Keep the application fast even after years of usage.
+
+Generated PDFs should be organized automatically.
+
+Example
+
+Reports
+
+2026
+
+July
+
+Patient Name
+
+Report.pdf
+
+Bills
+
+2026
+
+July
+
+Invoice.pdf
+
+Backups
+
+2026
+
+July
+
+Backup.db
+
+Organize generated files automatically.
+
+Allow configurable storage locations.
+
+Support network drives in future.
+
+Support external backup locations.
+
+The application should include a complete Help system.
+
+Include
+
+Keyboard Shortcuts
+
+Quick User Guide
+
+Frequently Asked Questions
+
+About Software
+
+Version Information
+
+License Information
+
+Support Contact
+
+Error Reporting
+
+Allow users to report issues.
+
+Create detailed logs that help identify problems quickly.
+
+Design every module assuming another developer may work on this project after several years.
+
+Write code that is easy to understand.
+
+Keep naming consistent.
+
+Avoid unnecessary complexity.
+
+Do not sacrifice readability for cleverness.
+
+Every important decision should be documented inside the codebase.
+
+The final application should feel stable, polished and trustworthy.
+
+The objective is not simply to satisfy functional requirements.
+
+The objective is to deliver a professional Laboratory Report Management System that laboratory technicians immediately feel comfortable using because it preserves the workflow they already know while making every daily task faster, simpler, smarter and more reliable.
+
+Before considering the project complete,
+
+perform a complete review of every page, every API, every workflow and every module.
+
+Identify missing features.
+
+Identify inconsistent UI.
+
+Identify slow queries.
+
+Identify unnecessary complexity.
+
+Identify duplicated code.
+
+Identify poor user experience.
+
+Improve everything until the software reaches commercial production quality.

@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 174.7 83.9% 31.6%; /* Teal 600 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 174.7 83.9% 95%;
+    --accent-foreground: 174.7 83.9% 25%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 85%;
+    --ring: 174.7 83.9% 31.6%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 174.7 83.9% 45%; /* Slightly brighter Teal */
+    --primary-foreground: 222.2 84% 6%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 174.7 80% 12%;
+    --accent-foreground: 174.7 80% 85%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 174.7 83.9% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/35 rounded-full hover:bg-muted-foreground/50 transition-colors;
+}
+
+/* Quick Input styles for fast data entry */
+.entry-input {
+  @apply bg-transparent border-b border-input focus:border-primary border-t-0 border-l-0 border-r-0 rounded-none px-1 py-1 focus:ring-0 text-center w-full transition-all outline-none font-semibold;
+}
+
+.entry-input-abnormal {
+  @apply border-destructive text-destructive font-bold focus:border-destructive;
+}
+
+/* Print CSS Stylesheet */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide app navigation sidebar, action headers, and buttons on print */
+  .no-print,
+  nav,
+  aside,
+  header,
+  button,
+  .action-buttons {
+    display: none !important;
+  }
+
+  .print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+}

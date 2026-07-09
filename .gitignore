@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+electron/node_modules/
+
+# Compiler and Bundler Outputs
+dist/
+client/dist/
+server/dist/
+electron/dist/
+out/
+app-builds/
+*.exe
+*.dmg
+*.deb
+*.rpm
+
+# SQLite databases & temp files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+prisma/dev.db
+prisma/lrms.db
+
+# Secrets & Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Local logs & generated reports
+*.log
+logs/
+server/logs/
+pdf/
+server/pdf/
+client/pdf/
+
+# System files
+.DS_Store
+Thumbs.db

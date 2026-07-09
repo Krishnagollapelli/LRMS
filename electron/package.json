@@ -1,0 +1,19 @@
+{
+  "name": "electron-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && electron .",
+    "package": "npm run build && electron-builder build --win"
+  },
+  "dependencies": {
+    "shared": "*"
+  },
+  "devDependencies": {
+    "electron": "^30.0.1",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.4.5"
+  }
+}

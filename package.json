@@ -1,0 +1,32 @@
+{
+  "name": "lrms-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Laboratory Report Management System (LRMS) Workspace",
+  "workspaces": [
+    "shared",
+    "client",
+    "server",
+    "electron"
+  ],
+  "scripts": {
+    "db:generate": "prisma generate --schema=./prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
+    "install:all": "npm install && npm run db:generate",
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "dev:electron": "npm run dev -w electron",
+    "build:client": "npm run build -w client",
+    "build:server": "npm run build -w server",
+    "build:electron": "npm run build -w electron",
+    "build": "npm run build:client && npm run build:server && npm run build:electron",
+    "start": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:electron\"",
+    "package": "npm run build && npm run package -w electron"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prisma": "^5.14.0",
+    "typescript": "^5.4.5"
+  }
+}
