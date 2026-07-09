@@ -29,6 +29,12 @@ export default function Sidebar() {
     staleTime: 600000
   });
 
+  const { data: licenseStatus } = useQuery<any>({
+    queryKey: ['license-status'],
+    queryFn: () => api.get('/licensing/status'),
+    staleTime: 600000
+  });
+
   const labName = settings?.labName || 'LRMS Lab';
 
   const navigation = [
@@ -56,7 +62,13 @@ export default function Sidebar() {
           <h1 className="font-bold text-slate-800 dark:text-white leading-tight truncate" title={labName}>
             {labName}
           </h1>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wider uppercase truncate block">Diagnostic Hub</span>
+          {licenseStatus?.details?.demo ? (
+            <span className="text-[9px] bg-rose-50 dark:bg-rose-950/40 text-rose-500 dark:text-rose-400 font-bold px-1.5 py-0.5 rounded tracking-wider uppercase inline-block mt-0.5">Demo Mode</span>
+          ) : licenseStatus?.details?.developer ? (
+            <span className="text-[9px] bg-teal-55/60 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 font-bold px-1.5 py-0.5 rounded tracking-wider uppercase inline-block mt-0.5">Dev Mode</span>
+          ) : (
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wider uppercase truncate block">Diagnostic Hub</span>
+          )}
         </div>
       </div>
 
