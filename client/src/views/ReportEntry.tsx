@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../utils/api.js';
+import { api, API_BASE_URL } from '../utils/api.js';
 import type { Report, Parameter } from 'shared';
 import { useAppStore } from '../store/useStore.js';
 import { 
@@ -465,7 +465,7 @@ export default function ReportEntry() {
       {/* Print-Only Container (Native rendering for browser print) */}
       <div className="hidden print:block print-container w-full">
         <iframe 
-          src={`http://localhost:5000/api/reports/download/${id}`} 
+          src={`${API_BASE_URL}/reports/download/${id}`} 
           className="w-full h-screen border-none"
           title="Print Sheet"
         />
@@ -693,7 +693,7 @@ export default function ReportEntry() {
               <span>Print Report</span>
             </button>
             <a
-              href={`http://localhost:5000/api/reports/download/${id}`}
+              href={`${API_BASE_URL}/reports/download/${id}`}
               download={`${id}.pdf`}
               className="px-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2"
             >
@@ -733,7 +733,7 @@ export default function ReportEntry() {
           <div className="flex-1 bg-slate-50 dark:bg-slate-950 rounded-lg overflow-hidden border border-slate-200/50 dark:border-slate-800/50 relative flex items-center justify-center">
             {/* Direct loading PDF file in standard browser viewer */}
             <iframe 
-              src={`http://localhost:5000/api/reports/download/${id}#toolbar=0&navpanes=0&scrollbar=0`} 
+              src={`${API_BASE_URL}/reports/download/${id}#toolbar=0&navpanes=0&scrollbar=0`} 
               className="w-full h-full border-none"
               title="Report Preview"
             />

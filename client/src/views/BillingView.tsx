@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../utils/api.js';
+import { api, API_BASE_URL } from '../utils/api.js';
 import { toast } from 'sonner';
 import { ArrowLeft, Printer, Send, Save, CreditCard, Receipt, MessageSquare, Mail } from 'lucide-react';
 
@@ -135,10 +135,7 @@ export default function BillingView() {
 
   // Print invoice handler (A5 receipt)
   const handlePrint = () => {
-    const backendUrl = api.defaults.baseURL || 'http://localhost:5000/api';
-    // Remove trailing slashes if any
-    const cleanBaseUrl = backendUrl.replace(/\/+$/, '');
-    window.open(`${cleanBaseUrl}/billing/receipt/${id}`, '_blank');
+    window.open(`${API_BASE_URL}/billing/receipt/${id}`, '_blank');
   };
 
   // Dispatch receipt sharing
