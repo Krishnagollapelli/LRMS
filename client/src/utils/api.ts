@@ -90,6 +90,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Device-Fingerprint': getBrowserFingerprint(),
+    'X-Client-Type': getClientType(),
     ...options.headers
   };
 
@@ -106,7 +107,12 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     config.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  // Normalize slashes to prevent double slashes (e.g. url//endpoint)
+  const cleanBase = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${cleanBase}${cleanEndpoint}`;
+
+  const response = await fetch(url, config);
 
   if (!response.ok) {
     let errMsg = 'Network request failed';
