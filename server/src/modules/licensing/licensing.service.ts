@@ -60,9 +60,9 @@ export class LicensingService {
   /**
    * Verify if the license is valid, hasn't expired, and matches this machine's fingerprint.
    */
-  public static async verifyLicense(): Promise<{ isValid: boolean; message: string; details?: any }> {
+  public static async verifyLicense(clientFingerprint?: string): Promise<{ isValid: boolean; message: string; details?: any }> {
     try {
-      const localFingerprint = await this.getMachineFingerprint();
+      const localFingerprint = clientFingerprint || await this.getMachineFingerprint();
 
       // 1. Check database-driven DeviceActivation first
       const dbDevice = await prisma.deviceActivation.findUnique({

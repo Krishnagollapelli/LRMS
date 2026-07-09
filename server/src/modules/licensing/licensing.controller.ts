@@ -8,7 +8,7 @@ export const licensingRouter = Router();
 // Get local machine fingerprint
 licensingRouter.get('/fingerprint', async (req: Request, res: Response) => {
   try {
-    const fingerprint = await LicensingService.getMachineFingerprint();
+    const fingerprint = (req.headers['x-device-fingerprint'] as string) || await LicensingService.getMachineFingerprint();
     res.json({ fingerprint });
   } catch (error: any) {
     logger.error('Error in fingerprint endpoint:', error);
@@ -19,7 +19,8 @@ licensingRouter.get('/fingerprint', async (req: Request, res: Response) => {
 // Get active license verification status
 licensingRouter.get('/status', async (req: Request, res: Response) => {
   try {
-    const status = await LicensingService.verifyLicense();
+    const clientFingerprint = req.headers['x-device-fingerprint'] as string;
+    const status = await LicensingService.verifyLicense(clientFingerprint);
     res.json(status);
   } catch (error: any) {
     logger.error('Error in status endpoint:', error);
@@ -142,7 +143,8 @@ export async function licenseGuard(req: Request, res: Response, next: NextFuncti
     return next();
   }
 
-  const check = await LicensingService.verifyLicense();
+  const clientFingerprint = req.headers['x-device-fingerprint'] as string;
+  const check = await LicensingService.verifyLicense(clientFingerprint);
   if (!check.isValid) {
     return res.status(403).json({ 
       error: 'LICENSE_REQUIRED', 
