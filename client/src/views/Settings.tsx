@@ -17,14 +17,15 @@ import {
   Cpu,
   Sliders,
   Database,
-  Download
+  Download,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const activeUser = useAppStore(state => state.user);
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'doctors' | 'users' | 'analyzers' | 'audit'>('profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'doctors' | 'users' | 'analyzers' | 'audit' | 'print' | 'backup' | 'license'>('profile');
 
   // Profile Form States
   const [labName, setLabName] = useState('');
@@ -1043,6 +1044,169 @@ export default function Settings() {
         <BackupRestoreManager />
       )}
 
+      {/* --- TAB 7: LICENSING MANAGER --- */}
+      {activeSubTab === 'license' && activeUser?.role === 'ADMIN' && (
+        <LicenseKeyManager />
+      )}
+
+    </div>
+  );
+}
+
+function LicenseKeyManager() {
+  const [labName, setLabName] = useState('');
+  const [fingerprint, setFingerprint] = useState('');
+  const [expiryDate, setExpiryDate] = useState('2030-01-01');
+  const [perpetual, setPerpetual] = useState(true);
+  const [generatedKey, setGeneratedKey] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const { data: fpData } = useQuery({
+    queryKey: ['license-fingerprint'],
+    queryFn: () => api.get('/licensing/fingerprint')
+  });
+
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!labName.trim() || !fingerprint.trim()) {
+      toast.error('Lab name and fingerprint are required.');
+      return;
+    }
+    setIsGenerating(true);
+    setGeneratedKey('');
+    try {
+      const res = await api.post('/licensing/generate', {
+        labName,
+        fingerprint,
+        expiryDate: perpetual ? '' : expiryDate,
+        perpetual
+      });
+      if (res.success && res.key) {
+        setGeneratedKey(res.key);
+        toast.success('Activation key generated successfully!');
+      } else {
+        toast.error('Failed to generate key.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error generating activation key.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
+        <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
+          <ShieldCheck size={18} className="text-teal-600 dark:text-teal-400" />
+          <span>Super Admin Licensing Console</span>
+        </h3>
+        
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Generate base64-encoded, cryptographically signed activation keys for remote laboratory instances. The signature is bound to the target machine's hardware fingerprint.
+        </p>
+
+        {fpData?.fingerprint && (
+          <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-855 rounded-lg text-xs flex justify-between items-center">
+            <div>
+              <span className="font-bold text-slate-700 dark:text-slate-300 block">This Machine's Fingerprint:</span>
+              <span className="font-mono text-slate-500 text-[10px] break-all">{fpData.fingerprint}</span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(fpData.fingerprint);
+                toast.success('Fingerprint copied to clipboard.');
+              }}
+              className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-250 font-bold rounded text-[10px] flex items-center gap-1.5 transition"
+            >
+              <Copy size={11} />
+              <span>Copy</span>
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleGenerate} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Target Laboratory Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Apollo Pathology"
+                value={labName}
+                onChange={e => setLabName(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/50"
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Target Hardware Fingerprint</label>
+              <input
+                type="text"
+                placeholder="Paste client's hardware fingerprint hash"
+                value={fingerprint}
+                onChange={e => setFingerprint(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/55 font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-6 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={perpetual}
+                onChange={e => setPerpetual(e.target.checked)}
+                className="rounded border-slate-300 dark:border-slate-700 text-teal-600 focus:ring-teal-500"
+              />
+              <span>Perpetual (No Expiry Date)</span>
+            </label>
+
+            {!perpetual && (
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Expiry Date:</label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={e => setExpiryDate(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/50"
+                />
+              </div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isGenerating}
+            className="px-4 py-2.5 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-2 transition"
+          >
+            {isGenerating ? 'Generating Activation Key...' : 'Generate signed activation key'}
+          </button>
+        </form>
+
+        {generatedKey && (
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-center">
+              <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Generated Activation Key Payload</label>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedKey);
+                  toast.success('Activation key copied to clipboard.');
+                }}
+                className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 hover:bg-emerald-100 rounded text-[10px] font-bold flex items-center gap-1.5 transition"
+              >
+                <Copy size={11} />
+                <span>Copy Activation Key</span>
+              </button>
+            </div>
+            <textarea
+              readOnly
+              rows={4}
+              value={generatedKey}
+              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none resize-none select-all"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

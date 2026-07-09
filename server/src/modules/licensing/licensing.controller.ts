@@ -47,6 +47,27 @@ licensingRouter.post('/activate', async (req: Request, res: Response) => {
   }
 });
 
+// Generate activation key (Super Admin use only)
+licensingRouter.post('/generate', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Super Admin role required.' });
+    }
+
+    const { labName, fingerprint, expiryDate, perpetual } = req.body;
+    if (!labName || !fingerprint || (!expiryDate && !perpetual)) {
+      return res.status(400).json({ error: 'Lab name, fingerprint, and expiry details are required.' });
+    }
+
+    const key = LicensingService.generateActivationKey(labName, fingerprint, expiryDate || '', perpetual === true);
+    res.json({ success: true, key });
+  } catch (error: any) {
+    logger.error('Error in key generation endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Middleware to protect operational routes
 export async function licenseGuard(req: Request, res: Response, next: NextFunction) {
   // Allow licensing endpoints themselves to pass
