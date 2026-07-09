@@ -38,3 +38,40 @@ export const prisma = new PrismaClient({
     },
   },
 });
+
+// Run SQLite performance optimizations on startup
+const isPostgres = process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgresql://') || process.env.DATABASE_URL.startsWith('postgres://'));
+if (!isPostgres) {
+  Promise.all([
+    prisma.$executeRawUnsafe('PRAGMA journal_mode = WAL;'),
+    prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;'),
+    prisma.$executeRawUnsafe('PRAGMA temp_store = MEMORY;'),
+    prisma.$executeRawUnsafe('PRAGMA cache_size = -64000;'),
+    prisma.$executeRawUnsafe('PRAGMA synchronous = NORMAL;')
+  ])
+    .then(() => logger.info('SQLite performance tuning pragmas applied successfully.'))
+    .catch(err => logger.error('Failed to apply SQLite performance pragmas:', err));
+
+  // Automatically record local modifications to the SyncQueue
+  prisma.$use(async (params, next) => {
+    const result = await next(params);
+    const mutatingActions = ['create', 'update', 'delete', 'createMany', 'updateMany', 'deleteMany', 'upsert'];
+    const syncedModels = ['Patient', 'Report', 'Doctor', 'Billing', 'Setting'];
+
+    if (mutatingActions.includes(params.action) && syncedModels.includes(params.model || '')) {
+      try {
+        await prisma.syncQueue.create({
+          data: {
+            action: params.action.toUpperCase(),
+            model: params.model || 'Unknown',
+            recordId: result?.id || params.args?.where?.id || 'batch',
+            payload: JSON.stringify(result || params.args?.data || {})
+          }
+        });
+      } catch (e) {
+        logger.error('Failed to write sync queue entry:', e);
+      }
+    }
+    return result;
+  });
+}

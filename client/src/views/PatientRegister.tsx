@@ -33,6 +33,7 @@ export default function PatientRegister() {
   // Patient saved state & Test Selection Popup
   const [savedPatient, setSavedPatient] = useState<any | null>(null);
   const [showTestSearchModal, setShowTestSearchModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<RegisterFormFields>({
     defaultValues: {
@@ -111,6 +112,8 @@ export default function PatientRegister() {
   });
 
   const onSubmit = async (data: RegisterFormFields) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (!data.name.trim()) {
         toast.error('Patient Name is mandatory.');
@@ -136,6 +139,8 @@ export default function PatientRegister() {
       toast.success(`Patient "${patient.name}" saved. Choose investigation panels.`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to save patient.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -385,9 +390,10 @@ export default function PatientRegister() {
 
         <button
           type="submit"
-          className="w-full py-3.5 bg-teal-600 dark:bg-teal-500 text-white font-bold rounded-lg text-sm hover:bg-teal-700 dark:hover:bg-teal-600 transition flex items-center justify-center gap-2 shadow-md shadow-teal-600/10"
+          disabled={isSubmitting}
+          className="w-full py-3.5 bg-teal-600 dark:bg-teal-500 text-white font-bold rounded-lg text-sm hover:bg-teal-700 dark:hover:bg-teal-600 transition flex items-center justify-center gap-2 shadow-md shadow-teal-600/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span>Save Patient & Select Tests</span>
+          <span>{isSubmitting ? 'Saving Patient details...' : 'Save Patient & Select Tests'}</span>
         </button>
 
       </form>
@@ -476,9 +482,10 @@ export default function PatientRegister() {
 
               <button
                 type="submit"
-                className="w-full mt-2 py-2.5 bg-teal-600 dark:bg-teal-500 text-white font-bold rounded-lg text-sm text-center hover:bg-teal-700"
+                disabled={createDoctorMutation.isPending}
+                className="w-full mt-2 py-2.5 bg-teal-600 dark:bg-teal-500 text-white font-bold rounded-lg text-sm text-center hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Doctor
+                {createDoctorMutation.isPending ? 'Saving...' : 'Save Doctor'}
               </button>
             </form>
           </div>

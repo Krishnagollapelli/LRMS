@@ -102,6 +102,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   body?: any;
   headers?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 export async function apiRequest<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -123,6 +124,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const config: RequestInit = {
     method,
     headers,
+    signal: options.signal,
   };
 
   if (options.body) {
@@ -158,9 +160,9 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   return response.json();
 }
 export const api = {
-  get: <T = any>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, { method: 'GET', headers }),
-  post: <T = any>(url: string, body: any, headers?: Record<string, string>) => apiRequest<T>(url, { method: 'POST', body, headers }),
-  put: <T = any>(url: string, body: any, headers?: Record<string, string>) => apiRequest<T>(url, { method: 'PUT', body, headers }),
-  patch: <T = any>(url: string, body: any, headers?: Record<string, string>) => apiRequest<T>(url, { method: 'PATCH', body, headers }),
-  delete: <T = any>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, { method: 'DELETE', headers }),
+  get: <T = any>(url: string, options?: RequestOptions) => apiRequest<T>(url, { method: 'GET', ...options }),
+  post: <T = any>(url: string, body?: any, options?: RequestOptions) => apiRequest<T>(url, { method: 'POST', body, ...options }),
+  put: <T = any>(url: string, body?: any, options?: RequestOptions) => apiRequest<T>(url, { method: 'PUT', body, ...options }),
+  patch: <T = any>(url: string, body?: any, options?: RequestOptions) => apiRequest<T>(url, { method: 'PATCH', body, ...options }),
+  delete: <T = any>(url: string, options?: RequestOptions) => apiRequest<T>(url, { method: 'DELETE', ...options }),
 };

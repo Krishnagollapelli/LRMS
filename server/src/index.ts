@@ -13,6 +13,7 @@ import { reportsRouter } from './modules/reports/reports.controller.js';
 import { settingsRouter } from './modules/settings/settings.controller.js';
 import { licensingRouter, licenseGuard } from './modules/licensing/licensing.controller.js';
 import { billingRouter } from './modules/billing/billing.controller.js';
+import { startSyncEngine } from './modules/sync/syncEngine.js';
 
 dotenv.config();
 
@@ -52,6 +53,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Start Server
 const server = app.listen(PORT, () => {
   logger.info(`Laboratory API Server running on port ${PORT}`);
+  // Start cloud sync daemon if configured
+  startSyncEngine(30000); // sync every 30 seconds
 });
 
 // Handle graceful shutdown

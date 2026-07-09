@@ -131,3 +131,31 @@
     page-break-before: always;
   }
 }
+
+/* Standard interactive cursors for premium native desktop feel */
+button,
+a,
+select,
+input[type="button"],
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer !important;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="search"],
+input[type="date"],
+textarea {
+  cursor: text;
+}
+
+[disabled],
+.disabled,
+button:disabled {
+  cursor: not-allowed !important;
+}
