@@ -2,8 +2,8 @@ import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
 
-// Ensure logs directory exists
-const logDirectory = path.join(process.cwd(), '../logs');
+// Ensure logs directory exists (relative to workspace root)
+const logDirectory = path.resolve(__dirname, '../../../logs');
 if (!fs.existsSync(logDirectory)) {
   fs.mkdirSync(logDirectory, { recursive: true });
 }

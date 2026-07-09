@@ -8,7 +8,6 @@ import { sendWhatsAppPDF } from '../../utils/whatsapp.js';
 import { embedBase64Image } from '../../utils/pdfGenerator.js';
 import path from 'path';
 import fs from 'fs';
-
 export const billingRouter = Router();
 
 // Helper to generate invoice PDF byte buffer
@@ -145,14 +144,6 @@ async function generateReceiptBuffer(reportId: string): Promise<Buffer> {
   yOffset -= 14;
   page.drawText(`Total Charged Amount:`, { x: width - 180, y: yOffset, size: 7.5, font: fontRegular, color: secondaryColor });
   page.drawText(`INR ${billing.finalPrice.toFixed(2)}`, { x: width - 90, y: yOffset, size: 7.5, font: fontRegular, color: textColor });
-
-  yOffset -= 14;
-  page.drawText(`Discount Amount:`, { x: width - 180, y: yOffset, size: 7.5, font: fontRegular, color: secondaryColor });
-  page.drawText(`INR -${billing.discount.toFixed(2)}`, { x: width - 90, y: yOffset, size: 7.5, font: fontRegular, color: textColor });
-
-  yOffset -= 14;
-  page.drawText(`Discount Percentage:`, { x: width - 180, y: yOffset, size: 7.5, font: fontRegular, color: secondaryColor });
-  page.drawText(`${billing.discountPercent}%`, { x: width - 90, y: yOffset, size: 7.5, font: fontRegular, color: textColor });
 
   yOffset -= 14;
   page.drawText(`Net Payable:`, { x: width - 180, y: yOffset, size: 7.5, font: fontBold, color: textColor });
@@ -367,8 +358,8 @@ billingRouter.post('/:reportId/share', authenticateToken, async (req: Authentica
     // Compile PDF
     const buffer = await generateReceiptBuffer(reportId);
     
-    // Write receipt to disk temporarily
-    const dir = path.resolve(process.cwd(), '../pdf');
+    // Write receipt to disk temporarily (relative to workspace root)
+    const dir = path.resolve(__dirname, '../../../../pdf');
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

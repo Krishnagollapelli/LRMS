@@ -22,7 +22,7 @@ if (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgresql
     }
     dbPath = path.join(lrmsDataFolder, 'lrms.db');
   } else {
-    dbPath = path.resolve(process.cwd(), '../prisma/lrms.db');
+    dbPath = path.resolve(__dirname, '../../../prisma/lrms.db');
   }
 
   // Format properly for SQLite file path url
@@ -43,11 +43,11 @@ export const prisma = new PrismaClient({
 const isPostgres = process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgresql://') || process.env.DATABASE_URL.startsWith('postgres://'));
 if (!isPostgres) {
   Promise.all([
-    prisma.$executeRawUnsafe('PRAGMA journal_mode = WAL;'),
-    prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;'),
-    prisma.$executeRawUnsafe('PRAGMA temp_store = MEMORY;'),
-    prisma.$executeRawUnsafe('PRAGMA cache_size = -64000;'),
-    prisma.$executeRawUnsafe('PRAGMA synchronous = NORMAL;')
+    prisma.$queryRawUnsafe('PRAGMA journal_mode = WAL;'),
+    prisma.$queryRawUnsafe('PRAGMA foreign_keys = ON;'),
+    prisma.$queryRawUnsafe('PRAGMA temp_store = MEMORY;'),
+    prisma.$queryRawUnsafe('PRAGMA cache_size = -64000;'),
+    prisma.$queryRawUnsafe('PRAGMA synchronous = NORMAL;')
   ])
     .then(() => logger.info('SQLite performance tuning pragmas applied successfully.'))
     .catch(err => logger.error('Failed to apply SQLite performance pragmas:', err));

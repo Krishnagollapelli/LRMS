@@ -9,7 +9,6 @@ import { sendWhatsAppPDF } from '../../utils/whatsapp.js';
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs';
-
 export const reportsRouter = Router();
 const mkeService = new KnowledgeEngineService();
 
@@ -518,7 +517,7 @@ reportsRouter.get('/', authenticateToken, async (req: Request, res: Response) =>
 reportsRouter.get('/download/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const pdfPath = path.resolve(process.cwd(), `../pdf/${id}.pdf`);
+    const pdfPath = path.resolve(__dirname, '../../../../pdf', `${id}.pdf`);
     
     if (!fs.existsSync(pdfPath)) {
       // Regenerate if file missing
@@ -583,7 +582,7 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    const pdfPath = path.resolve(process.cwd(), `../pdf/${id}.pdf`);
+    const pdfPath = path.resolve(__dirname, '../../../../pdf', `${id}.pdf`);
     if (!fs.existsSync(pdfPath)) {
       await generateReportPDF({ reportId: id });
     }

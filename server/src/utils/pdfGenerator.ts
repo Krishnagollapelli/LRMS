@@ -549,8 +549,8 @@ export async function generateReportPDF(params: GeneratePdfParams): Promise<stri
 
     const pdfBytes = await pdfDoc.save();
     
-    // Ensure output directories exist
-    const pdfDir = path.resolve(process.cwd(), '../pdf');
+    // Ensure output directories exist (relative to workspace root)
+    const pdfDir = path.resolve(__dirname, '../../../pdf');
     if (!fs.existsSync(pdfDir)) {
       fs.mkdirSync(pdfDir, { recursive: true });
     }

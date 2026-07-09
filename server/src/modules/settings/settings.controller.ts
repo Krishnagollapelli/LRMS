@@ -3,7 +3,7 @@ import { prisma } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { z } from 'zod';
-
+import path from 'path';
 export const settingsRouter = Router();
 
 // Retrieve global laboratory settings
@@ -284,8 +284,8 @@ settingsRouter.post('/backup/db', authenticateToken, requireAdmin, async (req: R
   try {
     const { copyFileSync, existsSync, mkdirSync, statSync } = await import('fs');
     const path = await import('path');
-    const dbPath = path.resolve(process.cwd(), 'prisma/lrms.db');
-    const backupsDir = path.resolve(process.cwd(), 'backups');
+    const dbPath = path.resolve(__dirname, '../../../../prisma/lrms.db');
+    const backupsDir = path.resolve(__dirname, '../../../../backups');
     
     if (!existsSync(dbPath)) {
       return res.status(400).json({ error: `Database file not found at ${dbPath}` });
