@@ -54,6 +54,27 @@ export function getBrowserFingerprint(): string {
   return `FP-${hexPart}-${cleanUA}`;
 }
 
+export function getClientType(): 'Electron' | 'Web' {
+  if (typeof window !== 'undefined' && window.navigator.userAgent.toLowerCase().includes('electron')) {
+    return 'Electron';
+  }
+  return 'Web';
+}
+
+export function getOrGenerateDeviceId(): string {
+  if (typeof window === 'undefined') return 'SERVER-SIDE';
+  let deviceId = localStorage.getItem('lrms_device_id');
+  if (!deviceId) {
+    if (typeof window.crypto !== 'undefined' && typeof window.crypto.randomUUID === 'function') {
+      deviceId = window.crypto.randomUUID();
+    } else {
+      deviceId = 'dev-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
+    }
+    localStorage.setItem('lrms_device_id', deviceId);
+  }
+  return deviceId;
+}
+
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
@@ -91,6 +112,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     'Content-Type': 'application/json',
     'X-Device-Fingerprint': getBrowserFingerprint(),
     'X-Client-Type': getClientType(),
+    'X-Device-ID': getOrGenerateDeviceId(),
     ...options.headers
   };
 

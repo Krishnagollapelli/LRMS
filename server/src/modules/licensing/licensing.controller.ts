@@ -2,125 +2,99 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { LicensingService } from './licensing.service.js';
 import { authenticateToken } from '../auth/auth.middleware.js';
 import { logger } from '../../utils/logger.js';
+import { prisma } from '../../utils/db.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export const licensingRouter = Router();
-
-// Get local machine fingerprint
-licensingRouter.get('/fingerprint', async (req: Request, res: Response) => {
-  try {
-    const fingerprint = (req.headers['x-device-fingerprint'] as string) || await LicensingService.getMachineFingerprint();
-    res.json({ fingerprint });
-  } catch (error: any) {
-    logger.error('Error in fingerprint endpoint:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+const JWT_SECRET = process.env.JWT_SECRET || 'lrms-secret-key-2026';
 
 // Get active license verification status
 licensingRouter.get('/status', async (req: Request, res: Response) => {
   try {
-    const clientFingerprint = req.headers['x-device-fingerprint'] as string;
-    const status = await LicensingService.verifyLicense(clientFingerprint);
-    res.json(status);
+    const clientType = req.headers['x-client-type'] as string;
+    const deviceId = req.headers['x-device-id'] as string;
+
+    // 1. Dev / Demo Bypass
+    if (process.env.NODE_ENV !== 'production' || process.env.DEV_MODE === 'true' || clientType !== 'Electron') {
+      return res.json({ isValid: true, details: { demo: clientType !== 'Electron' } });
+    }
+
+    // 2. Check if database has any licenses configured
+    const count = await prisma.license.count();
+    if (count === 0) {
+      return res.json({ isValid: true, firstLaunch: true });
+    }
+
+    // 3. Verify specific authenticated user request
+    let userId: string | undefined = undefined;
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        userId = decoded?.id;
+      } catch (e) {}
+    }
+
+    const check = await LicensingService.verifyDeviceRequest(userId, deviceId);
+    res.json(check);
   } catch (error: any) {
-    logger.error('Error in status endpoint:', error);
-    res.status(500).json({ error: error.message });
+    res.json({ isValid: false, message: error.message });
   }
 });
 
-// Activate license key
-licensingRouter.post('/activate', async (req: Request, res: Response) => {
-  try {
-    const { key } = req.body;
-    if (!key) {
-      return res.status(400).json({ error: 'Activation key is required.' });
-    }
-
-    const result = await LicensingService.activateLicense(key);
-    if (!result.success) {
-      return res.status(400).json({ error: result.message });
-    }
-
-    res.json(result);
-  } catch (error: any) {
-    logger.error('Error in activate endpoint:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Generate activation key (Super Admin use only)
-licensingRouter.post('/generate', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    if (!user || user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Unauthorized. Super Admin role required.' });
-    }
-
-    const { labName, fingerprint, expiryDate, perpetual } = req.body;
-    if (!labName || !fingerprint || (!expiryDate && !perpetual)) {
-      return res.status(400).json({ error: 'Lab name, fingerprint, and expiry details are required.' });
-    }
-
-    const key = LicensingService.generateActivationKey(labName, fingerprint, expiryDate || '', perpetual === true);
-    res.json({ success: true, key });
-  } catch (error: any) {
-    logger.error('Error in key generation endpoint:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// List registered devices (Super Admin use only)
-licensingRouter.get('/devices', authenticateToken, async (req: Request, res: Response) => {
+// List all licenses (Admin use only)
+licensingRouter.get('/licenses', authenticateToken, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user || user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
     }
-    const devices = await LicensingService.listDevices();
-    res.json(devices);
+    const licenses = await LicensingService.listLicenses();
+    res.json(licenses);
   } catch (error: any) {
-    logger.error('Error listing devices:', error);
+    logger.error('Error listing licenses:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Approve device (Super Admin use only)
-licensingRouter.post('/devices/:id/approve', authenticateToken, async (req: Request, res: Response) => {
+// Create new license (Admin use only)
+licensingRouter.post('/licenses', authenticateToken, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user || user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
     }
-    const { id } = req.params;
-    const { labName, expiryDate } = req.body;
-    if (!labName) {
-      return res.status(400).json({ error: 'Laboratory name is required.' });
+    const { labName, licenseType, maxDevices, expiryDate } = req.body;
+    if (!labName || !licenseType || !maxDevices) {
+      return res.status(400).json({ error: 'Laboratory Name, Type, and Max Devices are required.' });
     }
-    const device = await LicensingService.approveDevice(id, labName, expiryDate);
-    res.json({ success: true, device });
+    const license = await LicensingService.createLicense({ labName, licenseType, maxDevices, expiryDate });
+    res.json({ success: true, license });
   } catch (error: any) {
-    logger.error('Error approving device:', error);
+    logger.error('Error creating license:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Block device (Super Admin use only)
-licensingRouter.post('/devices/:id/block', authenticateToken, async (req: Request, res: Response) => {
+// Reset all devices on a license (Admin use only)
+licensingRouter.post('/licenses/:id/reset', authenticateToken, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     if (!user || user.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
     }
     const { id } = req.params;
-    const device = await LicensingService.blockDevice(id);
-    res.json({ success: true, device });
+    await LicensingService.resetLicenseDevices(id);
+    res.json({ success: true });
   } catch (error: any) {
-    logger.error('Error blocking device:', error);
+    logger.error('Error resetting license devices:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete device registration (Super Admin use only)
+// Delete specific registered device (Admin use only)
 licensingRouter.delete('/devices/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -136,15 +110,58 @@ licensingRouter.delete('/devices/:id', authenticateToken, async (req: Request, r
   }
 });
 
+// Create first Laboratory Super Admin account linked to a license (Admin use only)
+licensingRouter.post('/users', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Unauthorized. Admin access required.' });
+    }
+    const { username, password, name, role, licenseId } = req.body;
+    if (!username || !password || !name || !role) {
+      return res.status(400).json({ error: 'Username, password, name, and role are required.' });
+    }
+    
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const newUser = await prisma.user.create({
+      data: {
+        username: username.toLowerCase().trim(),
+        password: hashedPassword,
+        name,
+        role,
+        licenseId,
+        isActive: true
+      }
+    });
+
+    res.json({ success: true, userId: newUser.id });
+  } catch (error: any) {
+    logger.error('Error creating user:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Middleware to protect operational routes
 export async function licenseGuard(req: Request, res: Response, next: NextFunction) {
-  // Allow licensing endpoints themselves to pass
   if (req.path.startsWith('/licensing') || req.path.startsWith('/auth')) {
     return next();
   }
 
-  const clientFingerprint = req.headers['x-device-fingerprint'] as string;
-  const check = await LicensingService.verifyLicense(clientFingerprint);
+  let userId: string | undefined = undefined;
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      userId = decoded?.id;
+    } catch (e) {
+      return next(); // Invalid token handling occurs at auth middles later
+    }
+  }
+
+  const deviceId = req.headers['x-device-id'] as string;
+  const check = await LicensingService.verifyDeviceRequest(userId, deviceId);
+  
   if (!check.isValid) {
     return res.status(403).json({ 
       error: 'LICENSE_REQUIRED', 

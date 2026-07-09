@@ -1055,334 +1055,435 @@ export default function Settings() {
 
 function LicenseKeyManager() {
   const queryClient = useQueryClient();
+  const [activeLicenseTab, setActiveLicenseTab] = useState<'list' | 'create' | 'createUser'>('list');
+
+  // Form states - Create License
   const [labName, setLabName] = useState('');
-  const [fingerprint, setFingerprint] = useState('');
+  const [licenseType, setLicenseType] = useState('SINGLE');
+  const [maxDevices, setMaxDevices] = useState('1');
   const [expiryDate, setExpiryDate] = useState('2030-01-01');
-  const [perpetual, setPerpetual] = useState(true);
-  const [generatedKey, setGeneratedKey] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
-  const [editLabName, setEditLabName] = useState('');
-  const [editExpiryDate, setEditExpiryDate] = useState('');
+  // Form states - Create User
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('ADMIN');
+  const [selectedLicenseId, setSelectedLicenseId] = useState('');
 
-  const { data: fpData } = useQuery({
-    queryKey: ['license-fingerprint'],
-    queryFn: () => api.get('/licensing/fingerprint')
+  // Fetch licenses
+  const { data: licenses = [], refetch: refetchLicenses } = useQuery<any[]>({
+    queryKey: ['licensing-licenses'],
+    queryFn: () => api.get('/licensing/licenses')
   });
 
-  const { data: devices = [], refetch: refetchDevices } = useQuery<any[]>({
-    queryKey: ['licensing-devices'],
-    queryFn: () => api.get('/licensing/devices')
-  });
-
-  const approveMutation = useMutation({
-    mutationFn: ({ id, labName, expiryDate }: { id: string; labName: string; expiryDate?: string }) =>
-      api.post(`/licensing/devices/${id}/approve`, { labName, expiryDate }),
+  // Create License mutation
+  const createLicenseMutation = useMutation({
+    mutationFn: (data: any) => api.post('/licensing/licenses', data),
     onSuccess: () => {
-      refetchDevices();
-      setEditingDeviceId(null);
-      toast.success('Device approved successfully!');
+      refetchLicenses();
+      setLabName('');
+      setMaxDevices('1');
+      setActiveLicenseTab('list');
+      toast.success('Laboratory license created successfully!');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Approval failed.');
+      toast.error(err.message || 'Creation failed.');
     }
   });
 
-  const blockMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/licensing/devices/${id}/block`, {}),
+  // Reset License devices mutation
+  const resetLicenseMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/licensing/licenses/${id}/reset`, {}),
     onSuccess: () => {
-      refetchDevices();
-      toast.info('Device access blocked.');
+      refetchLicenses();
+      toast.success('All devices reset successfully for this license.');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Reset failed.');
+    }
+  });
+
+  // Delete specific device mutation
+  const deleteDeviceMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/licensing/devices/${id}`),
+    onSuccess: () => {
+      refetchLicenses();
+      toast.info('Device unregistered. A new device can now connect in its place.');
     },
     onError: (err: any) => {
       toast.error(err.message || 'Action failed.');
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/licensing/devices/${id}`),
+  // Create User mutation
+  const createUserMutation = useMutation({
+    mutationFn: (data: any) => api.post('/licensing/users', data),
     onSuccess: () => {
-      refetchDevices();
-      toast.info('Device registration deleted.');
+      refetchLicenses();
+      setUsername('');
+      setPassword('');
+      setName('');
+      setActiveLicenseTab('list');
+      toast.success('First Laboratory User created and linked successfully!');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Delete failed.');
+      toast.error(err.message || 'User creation failed.');
     }
   });
 
-  const handleGenerate = async (e: React.FormEvent) => {
+  const handleCreateLicenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!labName.trim() || !fingerprint.trim()) {
-      toast.error('Lab name and fingerprint are required.');
+    if (!labName.trim()) {
+      toast.error('Laboratory name is required');
       return;
     }
-    setIsGenerating(true);
-    setGeneratedKey('');
-    try {
-      const res = await api.post('/licensing/generate', {
-        labName,
-        fingerprint,
-        expiryDate: perpetual ? '' : expiryDate,
-        perpetual
-      });
-      if (res.success && res.key) {
-        setGeneratedKey(res.key);
-        toast.success('Activation key generated successfully!');
-      } else {
-        toast.error('Failed to generate key.');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Error generating activation key.');
-    } finally {
-      setIsGenerating(false);
-    }
+    createLicenseMutation.mutate({
+      labName,
+      licenseType,
+      maxDevices: Number(maxDevices),
+      expiryDate: expiryDate || undefined
+    });
   };
+
+  const handleCreateUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim() || !name.trim() || !selectedLicenseId) {
+      toast.error('All fields and license selection are required');
+      return;
+    }
+    createUserMutation.mutate({
+      username,
+      password,
+      name,
+      role,
+      licenseId: selectedLicenseId
+    });
+  };
+
+  const currentDeviceId = localStorage.getItem('lrms_device_id') || 'Not Generated';
 
   return (
     <div className="space-y-6">
       
-      {/* 1. Device Approval Panel */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <Building size={18} className="text-teal-600 dark:text-teal-400" />
-          <span>Device Activation Approvals (Online Approval Panel)</span>
-        </h3>
-
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Laptops or client devices attempting to access this laboratory software are auto-registered below. Toggle approval to instantly authorize or block access.
-        </p>
-
-        <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                <th className="px-4 py-3">Lab / Client Name</th>
-                <th className="px-4 py-3">Hardware Fingerprint</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Expiry Date</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {devices.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
-                    No laptops or devices have requested activation yet.
-                  </td>
-                </tr>
-              ) : (
-                devices.map((device: any) => {
-                  const isEditing = editingDeviceId === device.id;
-                  return (
-                    <tr key={device.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
-                      <td className="px-4 py-3.5">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editLabName}
-                            onChange={e => setEditLabName(e.target.value)}
-                            className="px-2 py-1 rounded bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-300 w-full focus:outline-none focus:border-teal-500"
-                          />
-                        ) : (
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">{device.labName}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 font-mono text-[10px] text-slate-400 select-all break-all max-w-[200px]">
-                        {device.fingerprint}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
-                          ${device.status === 'APPROVED' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : ''}
-                          ${device.status === 'PENDING' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 animate-pulse' : ''}
-                          ${device.status === 'BLOCKED' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : ''}
-                        `}>
-                          {device.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-slate-500">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            value={editExpiryDate}
-                            onChange={e => setEditExpiryDate(e.target.value)}
-                            className="px-2 py-1 rounded bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500"
-                          />
-                        ) : (
-                          device.expiryDate ? new Date(device.expiryDate).toLocaleDateString() : 'Perpetual'
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-right space-x-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              onClick={() => approveMutation.mutate({ id: device.id, labName: editLabName, expiryDate: editExpiryDate || undefined })}
-                              className="px-2.5 py-1 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 text-white rounded text-[10px] font-bold"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingDeviceId(null)}
-                              className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-750 dark:text-slate-250 rounded text-[10px] font-bold"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {device.status !== 'APPROVED' ? (
-                              <button
-                                onClick={() => {
-                                  setEditingDeviceId(device.id);
-                                  setEditLabName(device.labName.startsWith('Unactivated') ? '' : device.labName);
-                                  setEditExpiryDate(device.expiryDate ? device.expiryDate.split('T')[0] : '');
-                                }}
-                                className="px-2.5 py-1 bg-teal-600 dark:bg-teal-500 hover:bg-teal-750 text-white rounded text-[10px] font-bold shadow-sm"
-                              >
-                                Approve
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => blockMutation.mutate(device.id)}
-                                className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100/50 text-rose-600 dark:text-rose-450 rounded text-[10px] font-bold border border-rose-200 dark:border-rose-900"
-                              >
-                                Block
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                if (window.confirm('Delete this device registration?')) {
-                                  deleteMutation.mutate(device.id);
-                                }
-                              }}
-                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded inline-flex items-center"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex border-b border-slate-100 dark:border-slate-800 gap-6">
+        <button
+          onClick={() => setActiveLicenseTab('list')}
+          className={`pb-3 text-xs font-bold transition-all ${
+            activeLicenseTab === 'list'
+              ? 'border-b-2 border-teal-500 text-teal-650 dark:text-teal-400'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Active Licenses ({licenses.length})
+        </button>
+        <button
+          onClick={() => setActiveLicenseTab('create')}
+          className={`pb-3 text-xs font-bold transition-all ${
+            activeLicenseTab === 'create'
+              ? 'border-b-2 border-teal-500 text-teal-650 dark:text-teal-400'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Create License
+        </button>
+        <button
+          onClick={() => setActiveLicenseTab('createUser')}
+          className={`pb-3 text-xs font-bold transition-all ${
+            activeLicenseTab === 'createUser'
+              ? 'border-b-2 border-teal-500 text-teal-650 dark:text-teal-400'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          Register Lab User
+        </button>
       </div>
 
-      {/* 2. Key Generation Utility (Offline Fallback) */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-          <ShieldCheck size={18} className="text-teal-600 dark:text-teal-400" />
-          <span>Activation Key Signer (Offline Fallback)</span>
-        </h3>
-        
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Generate base64-encoded, cryptographically signed activation keys for remote offline laboratory instances. The signature is bound to the target machine\'s hardware fingerprint.
-        </p>
+      {/* Info Header */}
+      <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-lg text-xs flex justify-between items-center">
+        <div>
+          <span className="font-bold text-slate-700 dark:text-slate-300 block">Current Browser Device ID:</span>
+          <span className="font-mono text-slate-500 text-[10px] break-all">{currentDeviceId}</span>
+        </div>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(currentDeviceId);
+            toast.success('Device ID copied.');
+          }}
+          className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-250 font-bold rounded text-[10px] flex items-center gap-1.5 transition"
+        >
+          <Copy size={11} />
+          <span>Copy</span>
+        </button>
+      </div>
 
-        {fpData?.fingerprint && (
-          <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-855 rounded-lg text-xs flex justify-between items-center">
-            <div>
-              <span className="font-bold text-slate-700 dark:text-slate-300 block">This Machine\'s Fingerprint:</span>
-              <span className="font-mono text-slate-500 text-[10px] break-all">{fpData.fingerprint}</span>
+      {/* 1. LICENSES LIST VIEW */}
+      {activeLicenseTab === 'list' && (
+        <div className="space-y-6">
+          {licenses.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm text-xs">
+              No laboratory licenses configured yet. Click "Create License" to get started.
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(fpData.fingerprint);
-                toast.success('Fingerprint copied to clipboard.');
-              }}
-              className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-250 font-bold rounded text-[10px] flex items-center gap-1.5 transition"
-            >
-              <Copy size={11} />
-              <span>Copy</span>
-            </button>
-          </div>
-        )}
+          ) : (
+            licenses.map((license: any) => (
+              <div key={license.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-wrap justify-between items-start gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                      <Building size={16} className="text-teal-600 dark:text-teal-400" />
+                      <span>{license.labName}</span>
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-500 font-bold font-mono uppercase tracking-wide">
+                        {license.licenseType}
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono mt-1 break-all select-all">
+                      License ID: {license.id}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Reset all devices on this license?')) {
+                          resetLicenseMutation.mutate(license.id);
+                        }
+                      }}
+                      className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200 dark:border-amber-900 rounded text-xs font-semibold"
+                    >
+                      Reset All Devices
+                    </button>
+                  </div>
+                </div>
 
-        <form onSubmit={handleGenerate} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-400 block font-medium">Devices Limit:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                      {license.devices.length} / {license.maxDevices === 999999 ? 'Unlimited' : license.maxDevices}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">License Status:</span>
+                    <span className={`font-semibold uppercase tracking-wide
+                      ${license.status === 'ACTIVE' ? 'text-emerald-600' : 'text-rose-500'}
+                    `}>
+                      {license.status}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Expiry Date:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {license.expiryDate ? new Date(license.expiryDate).toLocaleDateString() : 'Perpetual (No Expiry)'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Associated Users:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                      {license._count?.users || 0} users linked
+                    </span>
+                  </div>
+                </div>
+
+                {/* Devices Sub-table */}
+                <div className="pt-2">
+                  <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Registered Devices</h4>
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          <th className="px-4 py-2">Device ID</th>
+                          <th className="px-4 py-2">Browser / OS</th>
+                          <th className="px-4 py-2">Registered Date</th>
+                          <th className="px-4 py-2">Last Active</th>
+                          <th className="px-4 py-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {license.devices.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-4 text-center text-slate-400 text-xs">
+                              No devices currently registered to this license. First login will bind a device.
+                            </td>
+                          </tr>
+                        ) : (
+                          license.devices.map((device: any) => (
+                            <tr key={device.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 text-[11px]">
+                              <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500 break-all select-all max-w-[150px]">
+                                {device.id}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">
+                                {device.browserInfo} on {device.os}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">
+                                {new Date(device.registrationDate).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">
+                                {new Date(device.lastActive).toLocaleString()}
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Delete/Unregister this device?')) {
+                                      deleteDeviceMutation.mutate(device.id);
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded inline-flex items-center"
+                                  title="Unregister Device"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* 2. CREATE LICENSE FORM */}
+      {activeLicenseTab === 'create' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800">
+            Create Laboratory License
+          </h3>
+          <form onSubmit={handleCreateLicenseSubmit} className="space-y-4 max-w-lg text-xs">
             <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Target Laboratory Name</label>
+              <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Laboratory Name</label>
               <input
                 type="text"
-                placeholder="e.g. Apollo Pathology"
+                placeholder="e.g. Apollo Pathology Hub"
                 value={labName}
                 onChange={e => setLabName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/50"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500"
               />
             </div>
-            
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Target Hardware Fingerprint</label>
-              <input
-                type="text"
-                placeholder="Paste client\'s hardware fingerprint hash"
-                value={fingerprint}
-                onChange={e => setFingerprint(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/55 font-mono"
-              />
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-6 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={perpetual}
-                onChange={e => setPerpetual(e.target.checked)}
-                className="rounded border-slate-300 dark:border-slate-700 text-teal-650 focus:ring-teal-500"
-              />
-              <span>Perpetual (No Expiry Date)</span>
-            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">License Type</label>
+                <select
+                  value={licenseType}
+                  onChange={e => {
+                    setLicenseType(e.target.value);
+                    if (e.target.value === 'SINGLE') setMaxDevices('1');
+                    else if (e.target.value === 'MULTI') setMaxDevices('5');
+                    else if (e.target.value === 'UNLIMITED') setMaxDevices('999999');
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-850 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+                >
+                  <option value="SINGLE">Single Device (1)</option>
+                  <option value="MULTI">Multi Device (5)</option>
+                  <option value="UNLIMITED">Unlimited Devices</option>
+                </select>
+              </div>
 
-            {!perpetual && (
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Expiry Date:</label>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase">Max Devices</label>
                 <input
-                  type="date"
-                  value={expiryDate}
-                  onChange={e => setExpiryDate(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500/50"
+                  type="number"
+                  disabled={licenseType === 'UNLIMITED'}
+                  value={maxDevices}
+                  onChange={e => setMaxDevices(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-850 dark:text-slate-300 focus:outline-none focus:border-teal-500 font-mono"
                 />
               </div>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={isGenerating}
-            className="px-4 py-2.5 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-2 transition"
-          >
-            {isGenerating ? 'Generating Activation Key...' : 'Generate signed activation key'}
-          </button>
-        </form>
-
-        {generatedKey && (
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between items-center">
-              <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Generated Activation Key Payload</label>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedKey);
-                  toast.success('Activation key copied to clipboard.');
-                }}
-                className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 hover:bg-emerald-100 rounded text-[10px] font-bold flex items-center gap-1.5 transition"
-              >
-                <Copy size={11} />
-                <span>Copy Activation Key</span>
-              </button>
             </div>
-            <textarea
-              readOnly
-              rows={4}
-              value={generatedKey}
-              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none resize-none select-all"
-            />
-          </div>
-        )}
-      </div>
+
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Expiry Date</label>
+              <input
+                type="date"
+                value={expiryDate}
+                onChange={e => setExpiryDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-850 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={createLicenseMutation.isPending}
+              className="px-4 py-2 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 text-white font-bold rounded-lg transition"
+            >
+              {createLicenseMutation.isPending ? 'Creating...' : 'Create License'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* 3. REGISTER LAB USER FORM */}
+      {activeLicenseTab === 'createUser' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm space-y-4">
+          <h3 className="text-base font-bold text-slate-800 dark:text-white pb-2 border-b border-slate-100 dark:border-slate-800">
+            Register Laboratory Super Admin User
+          </h3>
+          <form onSubmit={handleCreateUserSubmit} className="space-y-4 max-w-lg text-xs">
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Select Target Laboratory License</label>
+              <select
+                value={selectedLicenseId}
+                onChange={e => setSelectedLicenseId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-850 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+              >
+                <option value="">-- Choose License / Laboratory --</option>
+                {licenses.map((lic: any) => (
+                  <option key={lic.id} value={lic.id}>
+                    {lic.labName} (Max: {lic.maxDevices === 999999 ? 'Unlimited' : lic.maxDevices} dev)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Super Admin Full Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Dr. John Doe"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Username</label>
+                <input
+                  type="text"
+                  placeholder="e.g. johndoe"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-555 dark:text-slate-400 uppercase">Password</label>
+                <input
+                  type="password"
+                  placeholder="Enter initial password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-xs text-slate-850 dark:text-slate-300 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={createUserMutation.isPending}
+              className="px-4 py-2 bg-teal-650 hover:bg-teal-700 text-white font-bold rounded-lg transition"
+            >
+              {createUserMutation.isPending ? 'Registering...' : 'Register User & Link to License'}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

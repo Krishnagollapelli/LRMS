@@ -5,6 +5,7 @@ import { prisma } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from './auth.middleware.js';
 import { z } from 'zod';
+import { LicensingService } from '../licensing/licensing.service.js';
 
 export const authRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'lrms-secret-key-2026';
@@ -35,7 +36,24 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const isMatch = bcrypt.compareSync(password, user.password);
     if (!isMatch) {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'LOGIN_FAILURE',
+          details: `Failed login attempt for user ${username} (Invalid password)`,
+          ipAddress: req.ip
+        }
+      });
       return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    // Verify Device Registration
+    const deviceId = req.headers['x-device-id'] as string;
+    const userAgent = req.headers['user-agent'];
+
+    const deviceCheck = await LicensingService.validateLoginDevice(user.id, deviceId, userAgent);
+    if (!deviceCheck.success) {
+      return res.status(403).json({ error: deviceCheck.error || 'Device verification failed' });
     }
 
     // Sign JWT
