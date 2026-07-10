@@ -113,34 +113,30 @@ export default function PatientRegister() {
 
   const onSubmit = async (data: RegisterFormFields) => {
     if (isSubmitting) return;
-    setIsSubmitting(true);
     try {
       if (!data.name.trim()) {
         toast.error('Patient Name is mandatory.');
         return;
       }
       
-      // Save patient details
-      const patient = await api.post('/patients', {
+      // Store patient details in state temporarily
+      const tempPatient = {
         name: data.name.trim(),
         age: data.age ? Number(data.age) : null,
         ageUnit: data.age ? data.ageUnit : null,
         gender: data.age ? data.gender : null,
         phone: data.phone || null
-      });
+      };
 
       // Save last used settings
       if (data.doctorId) {
         localStorage.setItem('lastUsedDoctorId', data.doctorId);
       }
 
-      setSavedPatient(patient);
+      setSavedPatient(tempPatient);
       setShowTestSearchModal(true);
-      toast.success(`Patient "${patient.name}" saved. Choose investigation panels.`);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save patient.');
-    } finally {
-      setIsSubmitting(false);
+      toast.error(err.message || 'Failed to initialize patient details.');
     }
   };
 
@@ -509,6 +505,7 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [focusedIdx, setFocusedIdx] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Local states for Favorites & Recents
   const [favIds, setFavIds] = useState<string[]>([]);
@@ -589,23 +586,36 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
       toast.error('Please select at least one test panel.');
       return;
     }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       // Save to recent list
       const updatedRecents = Array.from(new Set([...selectedIds, ...recentIds])).slice(0, 10);
       localStorage.setItem('recentTestIds', JSON.stringify(updatedRecents));
 
-      // Register report & load templates
+      // 1. Save patient first
+      const savedPatient = await api.post('/patients', {
+        name: patient.name,
+        age: patient.age,
+        ageUnit: patient.ageUnit,
+        gender: patient.gender,
+        phone: patient.phone
+      });
+
+      // 2. Register report & load templates
       const report = await api.post('/reports', {
-        patientId: patient.id,
+        patientId: savedPatient.id,
         doctorId: doctorId || 'self-doctor',
         testIds: selectedIds
       });
 
-      toast.success('Investigation registered and templates loaded.');
+      toast.success(`Patient "${savedPatient.name}" and investigation registered successfully.`);
       onClose();
-      navigate(`/reports/${report.id}/entry`);
+      navigate('/reports');
     } catch (err: any) {
       toast.error(err.message || 'Failed to complete registration.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -714,10 +724,11 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
             <button 
               type="button" 
               onClick={handleConfirm} 
-              className="px-5 py-2 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 dark:hover:bg-teal-600 rounded-lg text-xs font-bold text-white shadow-md shadow-teal-600/10 flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-5 py-2 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 dark:hover:bg-teal-600 rounded-lg text-xs font-bold text-white shadow-md shadow-teal-600/10 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ClipboardList size={14} />
-              <span>Confirm & Start Entry (ENTER)</span>
+              <span>{isSubmitting ? 'Registering...' : 'Confirm & Register (Ctrl+Enter)'}</span>
             </button>
           </div>
         </div>
