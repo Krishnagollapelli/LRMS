@@ -50,20 +50,24 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ error: err.message || 'Internal server error occurred' });
 });
 
-// Start Server
-const server = app.listen(PORT, () => {
-  logger.info(`Laboratory API Server running on port ${PORT}`);
-  // Start cloud sync daemon if configured
-  startSyncEngine(30000); // sync every 30 seconds
-});
+// Start Server (only if not running under Vercel Serverless)
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    logger.info(`Laboratory API Server running on port ${PORT}`);
+    // Start cloud sync daemon if configured
+    startSyncEngine(30000); // sync every 30 seconds
+  });
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received. Closing HTTP server and database connections.');
-  server.close(() => {
-    prisma.$disconnect().then(() => {
-      logger.info('Database disconnected. Safe shutdown complete.');
-      process.exit(0);
+  // Handle graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM signal received. Closing HTTP server and database connections.');
+    server.close(() => {
+      prisma.$disconnect().then(() => {
+        logger.info('Database disconnected. Safe shutdown complete.');
+        process.exit(0);
+      });
     });
   });
-});
+}
+
+export default app;

@@ -22,7 +22,8 @@
     "build:electron": "npm run build -w electron",
     "build": "npm run build:client && npm run build:server && npm run build:electron",
     "start": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:electron\"",
-    "package": "npm run build && npm run package -w electron"
+    "package": "npm run build && npm run package -w electron",
+    "vercel-build": "npm run db:generate"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
