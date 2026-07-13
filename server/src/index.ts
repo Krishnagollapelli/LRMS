@@ -12,7 +12,7 @@ import { patientsRouter } from './modules/patients/patients.controller.js';
 import { doctorsRouter } from './modules/doctors/doctors.controller.js';
 import { reportsRouter } from './modules/reports/reports.controller.js';
 import { settingsRouter } from './modules/settings/settings.controller.js';
-import { licensingRouter, licenseGuard } from './modules/licensing/licensing.controller.js';
+import { licensingRouter } from './modules/licensing/licensing.controller.js';
 import { billingRouter } from './modules/billing/billing.controller.js';
 import { startSyncEngine } from './modules/sync/syncEngine.js';
 import { superAdminRouter } from './modules/super-admin/superAdmin.controller.js';
@@ -62,14 +62,14 @@ app.use(express.json({ limit: '10mb' })); // Support base64 image uploads
 app.use('/api/auth', authRouter);
 app.use('/api/licensing', licensingRouter);
 app.use('/api/mke', mkeRouter); // Centralized Medical Knowledge Engine
-app.use('/api/billing', licenseGuard, billingRouter);
+app.use('/api/billing', billingRouter);
 app.use('/api/super-admin', superAdminRouter);
 
-// Guard operational endpoints with licensing fingerprint checks
-app.use('/api/patients', licenseGuard, patientsRouter);
-app.use('/api/doctors', licenseGuard, doctorsRouter);
-app.use('/api/reports', licenseGuard, reportsRouter);
-app.use('/api/settings', licenseGuard, settingsRouter);
+// Operational endpoints
+app.use('/api/patients', patientsRouter);
+app.use('/api/doctors', doctorsRouter);
+app.use('/api/reports', reportsRouter);
+app.use('/api/settings', settingsRouter);
 
 // Health Check
 app.get('/health', (req, res) => {

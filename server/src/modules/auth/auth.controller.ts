@@ -47,16 +47,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    // Verify Device Registration (skip for SUPER_ADMIN)
-    if (user.role !== 'SUPER_ADMIN') {
-      const deviceId = req.headers['x-device-id'] as string;
-      const userAgent = req.headers['user-agent'];
 
-      const deviceCheck = await LicensingService.validateLoginDevice(user.id, deviceId, userAgent);
-      if (!deviceCheck.success) {
-        return res.status(403).json({ error: deviceCheck.error || 'Device verification failed' });
-      }
-    }
 
     // Sign JWT
     const token = jwt.sign(
