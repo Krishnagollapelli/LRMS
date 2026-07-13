@@ -350,3 +350,86 @@ testsRouter.post('/bulk-delete', authenticateToken, async (req: AuthenticatedReq
   }
 });
 
+
+// ─────────────────────────────────────────────
+// Upload tests from JSON — bulk upsert by shortCode
+// Format: { tests: [{ name, shortCode, category, defaultPrice?, parameters: [{name, shortCode, unit, ...}] }] }
+// ─────────────────────────────────────────────
+testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    const tests: any[] = req.body.tests;
+    if (!Array.isArray(tests) || tests.length === 0) {
+      return res.status(400).json({ error: 'tests array is required and must not be empty' });
+    }
+
+    let createdTests = 0, updatedTests = 0, createdParams = 0, skippedParams = 0;
+    const errors: string[] = [];
+
+    for (const testDef of tests) {
+      try {
+        const { name, shortCode, category, defaultPrice, shortcut, description, displayOrder, parameters: paramDefs = [] } = testDef;
+        if (!name || !shortCode) { errors.push(`Skipping: missing name/shortCode`); continue; }
+        const resolvedParamIds: { parameterId: string; sortOrder: number }[] = [];
+        for (let i = 0; i < paramDefs.length; i++) {
+          const pd = paramDefs[i];
+          if (!pd.name || !pd.shortCode) { errors.push(`Skipping param in "${name}": missing name/shortCode`); continue; }
+          const unitName = pd.unit || 'No Unit';
+          let unit = await prisma.unit.findFirst({ where: { name: unitName } });
+          if (!unit) unit = await prisma.unit.create({ data: { name: unitName } });
+          let param = await prisma.parameter.findFirst({ where: { shortCode: pd.shortCode, deletedAt: null } });
+          if (!param) {
+            param = await prisma.parameter.create({ data: {
+              name: pd.name, shortCode: pd.shortCode,
+              category: pd.category || category || 'General',
+              unitId: unit.id, decimalPrecision: pd.decimalPrecision ?? 2,
+              aliases: Array.isArray(pd.aliases) ? pd.aliases.join(',') : (pd.aliases || ''),
+              description: pd.description || null, isActive: true
+            }});
+            if (Array.isArray(pd.referenceRanges) && pd.referenceRanges.length > 0) {
+              await prisma.referenceRange.createMany({ data: pd.referenceRanges.map((r: any) => ({
+                parameterId: param!.id, gender: r.gender || 'ALL',
+                ageMin: r.ageMin ?? 0, ageMax: r.ageMax ?? 120,
+                minVal: r.minVal ?? null, maxVal: r.maxVal ?? null,
+                displayText: r.displayText || '', condition: r.condition || 'ADULT'
+              }))});
+            }
+            createdParams++;
+          } else { skippedParams++; }
+          resolvedParamIds.push({ parameterId: param.id, sortOrder: pd.sortOrder ?? i });
+        }
+        let existingTest = await prisma.test.findFirst({ where: { shortCode, deletedAt: null } });
+        if (existingTest) {
+          await prisma.test.update({ where: { id: existingTest.id },
+            data: { name, category, defaultPrice: defaultPrice ?? 100, shortcut: shortcut || null, description: description || null, displayOrder: displayOrder ?? 0 }
+          });
+          await prisma.testParameter.deleteMany({ where: { testId: existingTest.id } });
+          if (resolvedParamIds.length > 0)
+            await prisma.testParameter.createMany({ data: resolvedParamIds.map(r => ({ testId: existingTest!.id, ...r })) });
+          updatedTests++;
+        } else {
+          const newTest = await prisma.test.create({ data: {
+            name, shortCode, category, defaultPrice: defaultPrice ?? 100,
+            shortcut: shortcut || null, description: description || null, displayOrder: displayOrder ?? 0, isActive: true
+          }});
+          if (resolvedParamIds.length > 0)
+            await prisma.testParameter.createMany({ data: resolvedParamIds.map(r => ({ testId: newTest.id, ...r })) });
+          createdTests++;
+        }
+      } catch (testErr: any) { errors.push(`Error on "${testDef?.name}": ${testErr.message}`); }
+    }
+
+    mkeService.rebuildSearchIndex();
+    await prisma.auditLog.create({ data: {
+      userId: req.user?.id, action: 'UPLOAD_TESTS',
+      details: `Uploaded: ${createdTests} new, ${updatedTests} updated, ${createdParams} params created, ${skippedParams} reused`
+    }});
+
+    res.json({ success: true, summary: { createdTests, updatedTests, createdParams, skippedParams, errors: errors.length }, errors: errors.slice(0, 20) });
+  } catch (error: any) {
+    logger.error('Error uploading tests:', error);
+    res.status(500).json({ error: error.message });
+  }
+});

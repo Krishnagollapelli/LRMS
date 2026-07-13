@@ -8,10 +8,14 @@ import { KnowledgeEngineService } from './knowledgeEngine.service.js';
 export const parametersRouter = Router();
 const mkeService = new KnowledgeEngineService();
 
-// Get all parameters (paginated, with search filters)
+// Get all parameters — server-side search + pagination
 parametersRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { category, isActive } = req.query;
+    const { category, isActive, q, page = '1', limit = '100' } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 100));
+    const skip = (pageNum - 1) * limitNum;
+
     const where: any = { deletedAt: null };
 
     if (category) {
@@ -20,25 +24,44 @@ parametersRouter.get('/', authenticateToken, async (req: Request, res: Response)
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
     }
+    if (q && (q as string).trim()) {
+      const search = (q as string).trim();
+      where.OR = [
+        { name: { contains: search } },
+        { shortCode: { contains: search } },
+        { aliases: { contains: search } },
+        { category: { contains: search } }
+      ];
+    }
 
-    const parameters = await prisma.parameter.findMany({
-      where,
-      include: {
-        unit: true,
-        referenceRanges: {
-          where: { deletedAt: null }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
+    const [parameters, total] = await Promise.all([
+      prisma.parameter.findMany({
+        where,
+        include: {
+          unit: true,
+          referenceRanges: {
+            where: { deletedAt: null }
+          }
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.parameter.count({ where })
+    ]);
 
-    // Formatting for front-end structure
     const formatted = parameters.map(p => ({
       ...p,
       aliases: p.aliases ? p.aliases.split(',') : []
     }));
 
-    res.json(formatted);
+    res.json({
+      data: formatted,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (error: any) {
     logger.error('Error fetching parameters:', error);
     res.status(500).json({ error: error.message });
@@ -301,4 +324,36 @@ parametersRouter.post('/bulk-delete', authenticateToken, async (req: Authenticat
     res.status(500).json({ error: error.message });
   }
 });
+// Bulk Clear ALL parameters (Super Admin clean-slate before import)
+parametersRouter.post('/bulk-clear', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Only allow ADMIN or SUPER_ADMIN
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
 
+    // Delete reference ranges first (FK constraint), then parameters
+    const deletedRanges = await prisma.referenceRange.deleteMany({});
+    const deletedParams = await prisma.parameter.deleteMany({});
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.id,
+        action: 'BULK_CLEAR_PARAMETERS',
+        details: `Cleared ALL parameters: ${deletedParams.count} params, ${deletedRanges.count} ranges deleted`
+      }
+    });
+
+    // Rebuild Search index in background
+    mkeService.rebuildSearchIndex();
+
+    res.json({ 
+      success: true, 
+      message: `All parameters cleared. ${deletedParams.count} parameters and ${deletedRanges.count} reference ranges removed.`,
+      deleted: { parameters: deletedParams.count, referenceRanges: deletedRanges.count }
+    });
+  } catch (error: any) {
+    logger.error('Error clearing all parameters:', error);
+    res.status(500).json({ error: error.message });
+  }
+});

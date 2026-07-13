@@ -9,6 +9,7 @@ export interface AuthenticatedRequest extends Request {
     id: string;
     username: string;
     role: UserRole;
+    licenseId?: string | null;
   };
 }
 
@@ -28,15 +29,23 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     req.user = {
       id: decoded.id,
       username: decoded.username,
-      role: decoded.role
+      role: decoded.role,
+      licenseId: decoded.licenseId
     };
     next();
   });
 }
 
 export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  if (!req.user || req.user.role !== 'ADMIN') {
+  if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN')) {
     return res.status(403).json({ error: 'Administrator access required' });
+  }
+  next();
+}
+
+export function requireSuperAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.user || req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Super Administrator access required' });
   }
   next();
 }

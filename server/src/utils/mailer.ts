@@ -11,19 +11,29 @@ export interface SendMailParams {
     filename: string;
     path: string;
   }[];
+  licenseId?: string | null;
 }
 
 export async function sendEmail(params: SendMailParams): Promise<{ success: boolean; error?: string }> {
   try {
-    // Retrieve SMTP Settings from database
+    let config: any = {};
+
+    // Email config only comes from global settings (lab_settings)
+    // License-level email fields have been removed
     const settingsRecord = await prisma.setting.findUnique({
       where: { key: 'lab_settings' }
     });
-
-    let config: any = {};
     if (settingsRecord) {
       try {
-        config = JSON.parse(settingsRecord.value);
+        const globalConfig = JSON.parse(settingsRecord.value);
+        config = {
+          emailEnabled: globalConfig.emailEnabled,
+          emailSmtpHost: globalConfig.emailSmtpHost,
+          emailSmtpPort: globalConfig.emailSmtpPort,
+          emailSmtpUser: globalConfig.emailSmtpUser,
+          emailSmtpPass: globalConfig.emailSmtpPass,
+          emailSender: globalConfig.emailSender
+        };
       } catch (e) {}
     }
 

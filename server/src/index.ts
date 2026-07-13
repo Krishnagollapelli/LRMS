@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import { logger } from './utils/logger.js';
 import { prisma } from './utils/db.js';
 
@@ -14,6 +15,36 @@ import { settingsRouter } from './modules/settings/settings.controller.js';
 import { licensingRouter, licenseGuard } from './modules/licensing/licensing.controller.js';
 import { billingRouter } from './modules/billing/billing.controller.js';
 import { startSyncEngine } from './modules/sync/syncEngine.js';
+import { superAdminRouter } from './modules/super-admin/superAdmin.controller.js';
+
+// Ensure the hardcoded super admin account always exists
+async function ensureSuperAdmin() {
+  try {
+    const existing = await prisma.user.findFirst({ where: { username: 'krishna' } });
+    if (!existing) {
+      const hashed = bcrypt.hashSync('krishna@2006', 10);
+      await prisma.user.create({
+        data: {
+          username: 'krishna',
+          password: hashed,
+          name: 'Super Administrator',
+          role: 'SUPER_ADMIN',
+          isActive: true
+        }
+      });
+      logger.info('Super Admin account "krishna" seeded successfully.');
+    } else if (existing.role !== 'SUPER_ADMIN') {
+      // Upgrade existing account to super admin
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { role: 'SUPER_ADMIN', isActive: true }
+      });
+      logger.info('Super Admin account "krishna" upgraded to SUPER_ADMIN role.');
+    }
+  } catch (err) {
+    logger.error('Failed to seed Super Admin account:', err);
+  }
+}
 
 dotenv.config();
 
@@ -32,6 +63,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/licensing', licensingRouter);
 app.use('/api/mke', mkeRouter); // Centralized Medical Knowledge Engine
 app.use('/api/billing', licenseGuard, billingRouter);
+app.use('/api/super-admin', superAdminRouter);
 
 // Guard operational endpoints with licensing fingerprint checks
 app.use('/api/patients', licenseGuard, patientsRouter);
@@ -52,8 +84,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start Server (only if not running under Vercel Serverless)
 if (!process.env.VERCEL) {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     logger.info(`Laboratory API Server running on port ${PORT}`);
+    // Seed the hardcoded super admin account
+    await ensureSuperAdmin();
     // Start cloud sync daemon if configured
     startSyncEngine(30000); // sync every 30 seconds
   });

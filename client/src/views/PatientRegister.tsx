@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -538,28 +538,37 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
   };
 
   // Filter and Sort tests: Query matches, then prioritize Favorites & Recents
-  const filteredTests = tests.filter(test => {
+  const filteredTests = useMemo(() => {
     const term = query.toLowerCase();
-    return (
-      test.name.toLowerCase().includes(term) ||
-      test.shortCode.toLowerCase().includes(term) ||
-      test.category.toLowerCase().includes(term)
-    );
-  });
+    return tests.filter(test => {
+      return (
+        test.name.toLowerCase().includes(term) ||
+        test.shortCode.toLowerCase().includes(term) ||
+        (test.category && test.category.toLowerCase().includes(term))
+      );
+    });
+  }, [tests, query]);
 
   // Sort: Favorited/Recent tests bubble up when query is empty
-  const sortedTests = [...filteredTests].sort((a, b) => {
-    if (!query) {
-      const aFav = favIds.includes(a.id) ? 1 : 0;
-      const bFav = favIds.includes(b.id) ? 1 : 0;
-      if (aFav !== bFav) return bFav - aFav;
+  const sortedTests = useMemo(() => {
+    return [...filteredTests].sort((a, b) => {
+      if (!query) {
+        const aFav = favIds.includes(a.id) ? 1 : 0;
+        const bFav = favIds.includes(b.id) ? 1 : 0;
+        if (aFav !== bFav) return bFav - aFav;
 
-      const aRec = recentIds.includes(a.id) ? 1 : 0;
-      const bRec = recentIds.includes(b.id) ? 1 : 0;
-      return bRec - aRec;
-    }
-    return 0;
-  });
+        const aRec = recentIds.includes(a.id) ? 1 : 0;
+        const bRec = recentIds.includes(b.id) ? 1 : 0;
+        return bRec - aRec;
+      }
+      return 0;
+    });
+  }, [filteredTests, query, favIds, recentIds]);
+
+  // Performance optimization: Render only top 50 matching items to eliminate keypress rendering latency
+  const visibleTests = useMemo(() => {
+    return sortedTests.slice(0, 50);
+  }, [sortedTests]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -567,14 +576,14 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
       handleConfirm();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setFocusedIdx(prev => (prev + 1) % sortedTests.length);
+      setFocusedIdx(prev => (prev + 1) % visibleTests.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setFocusedIdx(prev => (prev - 1 + sortedTests.length) % sortedTests.length);
+      setFocusedIdx(prev => (prev - 1 + visibleTests.length) % visibleTests.length);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (sortedTests[focusedIdx]) {
-        handleToggleSelect(sortedTests[focusedIdx].id);
+      if (visibleTests[focusedIdx]) {
+        handleToggleSelect(visibleTests[focusedIdx].id);
       }
     } else if (e.key === 'Escape') {
       onClose();
@@ -655,7 +664,7 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
 
         {/* List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1.5 font-sans">
-          {sortedTests.map((test, index) => {
+          {visibleTests.map((test, index) => {
             const isSelected = selectedIds.includes(test.id);
             const isFocused = index === focusedIdx;
             const isFav = favIds.includes(test.id);
@@ -701,7 +710,7 @@ function TestSelectionModal({ patient, doctorId, tests, onClose, navigate }: Mod
               </div>
             );
           })}
-          {sortedTests.length === 0 && (
+          {visibleTests.length === 0 && (
             <div className="p-8 text-center text-xs text-slate-400">
               No matching investigation templates found.
             </div>

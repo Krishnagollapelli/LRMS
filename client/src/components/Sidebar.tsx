@@ -39,6 +39,9 @@ export default function Sidebar() {
 
   const navigation = [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
+    ...(user?.role === 'SUPER_ADMIN' ? [
+      { name: 'Super Admin Panel', to: '/super-admin', icon: Layers }
+    ] : []),
     { name: 'Patients', to: '/patients', icon: Users },
     { name: 'Register Patient', to: '/register-patient', icon: FilePlus },
     { name: 'Reports Log', to: '/reports', icon: FileText },

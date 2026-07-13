@@ -11,6 +11,7 @@ import ReportEntry from './views/ReportEntry.js';
 import KnowledgeEngine from './views/KnowledgeEngine.js';
 import Settings from './views/Settings.js';
 import BillingView from './views/BillingView.js';
+import SuperAdminDashboard from './views/SuperAdminDashboard.js';
 import { Toaster, toast } from 'sonner';
 import { ShieldCheck, Copy } from 'lucide-react';
 import { api } from './utils/api.js';
@@ -30,20 +31,22 @@ const queryClient = new QueryClient({
 
 function LicenseGuard({ children }: { children: React.ReactNode }) {
   const [activationKey, setActivationKey] = useState('');
+  const user = useAppStore(state => state.user);
 
   // Check license status
   const { data: status, isLoading, refetch } = useQuery({
     queryKey: ['license-status'],
     queryFn: () => api.get('/licensing/status'),
     retry: 10,
-    retryDelay: 1000
+    retryDelay: 1000,
+    enabled: !!user && user.role !== 'SUPER_ADMIN'
   });
 
   // Fetch local fingerprint
   const { data: fpData } = useQuery({
     queryKey: ['license-fingerprint'],
     queryFn: () => api.get('/licensing/fingerprint'),
-    enabled: status?.isValid === false
+    enabled: !!user && user.role !== 'SUPER_ADMIN' && status?.isValid === false
   });
 
   const activateMutation = useMutation({
@@ -56,6 +59,10 @@ function LicenseGuard({ children }: { children: React.ReactNode }) {
       toast.error(err.message || 'Activation failed.');
     }
   });
+
+  if (user?.role === 'SUPER_ADMIN') {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
@@ -147,6 +154,7 @@ function LicenseGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const token = useAppStore(state => state.token);
+  const user = useAppStore(state => state.user);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -175,6 +183,7 @@ export default function App() {
                     <Route path="/reports/:id/billing" element={<BillingView />} />
                     <Route path="/knowledge-engine" element={<KnowledgeEngine />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/super-admin" element={user?.role === 'SUPER_ADMIN' ? <SuperAdminDashboard /> : <Navigate to="/" />} />
                     {/* Fallback to Dashboard */}
                     <Route path="*" element={<Navigate to="/" />} />
                   </Routes>

@@ -601,7 +601,8 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
             filename: `${id}.pdf`,
             path: pdfPath
           }
-        ]
+        ],
+        licenseId: req.user?.licenseId
       });
       shareSuccess = emailRes.success;
       errorMsg = emailRes.error;
@@ -611,7 +612,8 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
         pdfPath,
         pdfFilename: `${id}.pdf`,
         patientName: report.patient.name,
-        reportId: id
+        reportId: id,
+        licenseId: req.user?.licenseId
       });
       shareSuccess = whatsappRes.success;
       errorMsg = whatsappRes.error;

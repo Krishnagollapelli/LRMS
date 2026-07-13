@@ -148,15 +148,21 @@ export async function licenseGuard(req: Request, res: Response, next: NextFuncti
   }
 
   let userId: string | undefined = undefined;
+  let userRole: string | undefined = undefined;
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       userId = decoded?.id;
+      userRole = decoded?.role;
     } catch (e) {
       return next(); // Invalid token handling occurs at auth middles later
     }
+  }
+
+  if (userRole === 'SUPER_ADMIN') {
+    return next();
   }
 
   const deviceId = req.headers['x-device-id'] as string;

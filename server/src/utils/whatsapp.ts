@@ -7,19 +7,43 @@ export interface SendWhatsAppParams {
   pdfFilename: string;
   patientName: string;
   reportId: string;
+  licenseId?: string | null;
 }
 
 export async function sendWhatsAppPDF(params: SendWhatsAppParams): Promise<{ success: boolean; error?: string }> {
   try {
-    const settingsRecord = await prisma.setting.findUnique({
-      where: { key: 'lab_settings' }
-    });
-
     let config: any = {};
-    if (settingsRecord) {
-      try {
-        config = JSON.parse(settingsRecord.value);
-      } catch (e) {}
+
+    if (params.licenseId) {
+      const license = await prisma.license.findUnique({
+        where: { id: params.licenseId }
+      });
+      if (license) {
+        config = {
+          whatsappEnabled: license.whatsappEnabled,
+          whatsappApiKey: license.whatsappApiKey,
+          whatsappPhoneId: license.whatsappPhoneId,
+          labName: license.labName
+        };
+      }
+    }
+
+    // Fallback to global settings if license not found or not provided
+    if (!config.whatsappApiKey) {
+      const settingsRecord = await prisma.setting.findUnique({
+        where: { key: 'lab_settings' }
+      });
+      if (settingsRecord) {
+        try {
+          const globalConfig = JSON.parse(settingsRecord.value);
+          config = {
+            whatsappEnabled: globalConfig.whatsappEnabled,
+            whatsappApiKey: globalConfig.whatsappApiKey,
+            whatsappPhoneId: globalConfig.whatsappPhoneId,
+            labName: globalConfig.labName
+          };
+        } catch (e) {}
+      }
     }
 
     const { whatsappEnabled, whatsappApiKey, whatsappPhoneId, labName } = config;

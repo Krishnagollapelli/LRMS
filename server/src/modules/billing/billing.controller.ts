@@ -380,7 +380,8 @@ billingRouter.post('/:reportId/share', authenticateToken, async (req: Authentica
             filename: `receipt_${reportId}.pdf`,
             path: pdfPath
           }
-        ]
+        ],
+        licenseId: req.user?.licenseId
       });
       shareSuccess = emailRes.success;
       errorMsg = emailRes.error;
@@ -390,7 +391,8 @@ billingRouter.post('/:reportId/share', authenticateToken, async (req: Authentica
         pdfPath,
         pdfFilename: `receipt_${reportId}.pdf`,
         patientName: report.patient.name,
-        reportId
+        reportId,
+        licenseId: req.user?.licenseId
       });
       shareSuccess = whatsappRes.success;
       errorMsg = whatsappRes.error;

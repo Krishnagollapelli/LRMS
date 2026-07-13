@@ -46,6 +46,31 @@ export class KnowledgeEngineService {
         logger.info('Default admin user password validated/reset to admin123.');
       }
 
+      // Seed Super Admin
+      const existingSuperAdmin = await prisma.user.findFirst({ where: { username: 'krishna' } });
+      if (!existingSuperAdmin) {
+        await prisma.user.create({
+          data: {
+            username: 'krishna',
+            password: bcrypt.hashSync('krishna@2006', 10),
+            name: 'Super Administrator',
+            role: 'SUPER_ADMIN',
+            isActive: true
+          }
+        });
+        logger.info('Super admin user created (krishna / krishna@2006).');
+      } else {
+        await prisma.user.update({
+          where: { id: existingSuperAdmin.id },
+          data: {
+            password: bcrypt.hashSync('krishna@2006', 10),
+            isActive: true,
+            role: 'SUPER_ADMIN'
+          }
+        });
+        logger.info('Super admin user password validated/reset.');
+      }
+
       const selfDoctor = await prisma.doctor.findFirst({ where: { id: 'self-doctor' } });
       if (!selfDoctor) {
         await prisma.doctor.create({

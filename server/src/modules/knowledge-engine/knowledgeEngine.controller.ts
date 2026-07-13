@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger.js';
 import { z } from 'zod';
 import { testsRouter } from './tests.controller.js';
 import { parametersRouter } from './parameters.controller.js';
+import { authenticateToken } from '../auth/auth.middleware.js';
 
 export const mkeRouter = Router();
 const mkeService = new KnowledgeEngineService();
@@ -120,7 +121,7 @@ mkeRouter.post('/range/resolve', async (req: Request, res: Response) => {
 });
 
 // Normalize custom units (upsert database record on write request)
-mkeRouter.post('/units/normalize', async (req: Request, res: Response) => {
+mkeRouter.post('/units/normalize', authenticateToken, async (req: Request, res: Response) => {
   try {
     const schema = z.object({
       unit: z.string()
@@ -131,8 +132,44 @@ mkeRouter.post('/units/normalize', async (req: Request, res: Response) => {
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const result = await mkeService.normalizeUnit(parsed.data.unit);
+    let geminiApiKey: string | undefined;
+    const licenseId = (req as any).user?.licenseId;
+
+    if (licenseId) {
+      const license = await prisma.license.findUnique({
+        where: { id: licenseId }
+      });
+      if (license) {
+        if (license.geminiQuotaCount >= license.geminiQuotaLimit) {
+          return res.status(429).json({ error: 'QUOTA_EXCEEDED', message: 'Gemini AI quota limit exceeded for this laboratory license.' });
+        }
+        geminiApiKey = license.geminiApiKey;
+      }
+    }
+
+    // Fallback to global setting
+    if (!geminiApiKey) {
+      const apiSetting = await prisma.setting.findUnique({
+        where: { key: 'lab_settings' }
+      });
+      if (apiSetting) {
+        try {
+          const settingsObj = JSON.parse(apiSetting.value);
+          geminiApiKey = settingsObj.geminiApiKey;
+        } catch (e) {}
+      }
+    }
+
+    const result = await mkeService.normalizeUnit(parsed.data.unit, geminiApiKey);
     
+    // Increment quota count
+    if (result && licenseId) {
+      await prisma.license.update({
+        where: { id: licenseId },
+        data: { geminiQuotaCount: { increment: 1 } }
+      });
+    }
+
     // Find or create Unit record in the database
     let unitRecord = await prisma.unit.findFirst({
       where: { name: { equals: result.standardName } }
@@ -158,27 +195,51 @@ mkeRouter.post('/units/normalize', async (req: Request, res: Response) => {
 });
 
 // AI lookup of new parameters using Gemini API configuration
-mkeRouter.get('/ai-resolve', async (req: Request, res: Response) => {
+mkeRouter.get('/ai-resolve', authenticateToken, async (req: Request, res: Response) => {
   try {
     const q = (req.query.q as string) || '';
     if (!q) {
       return res.status(400).json({ error: 'Search query is required' });
     }
 
-    // Attempt to load settings to get the Gemini API key
-    const apiSetting = await prisma.setting.findUnique({
-      where: { key: 'lab_settings' }
-    });
-
     let geminiApiKey: string | undefined;
-    if (apiSetting) {
-      try {
-        const settingsObj = JSON.parse(apiSetting.value);
-        geminiApiKey = settingsObj.geminiApiKey;
-      } catch (e) {}
+    const licenseId = (req as any).user?.licenseId;
+
+    if (licenseId) {
+      const license = await prisma.license.findUnique({
+        where: { id: licenseId }
+      });
+      if (license) {
+        if (license.geminiQuotaCount >= license.geminiQuotaLimit) {
+          return res.status(429).json({ error: 'QUOTA_EXCEEDED', message: 'Gemini AI quota limit exceeded for this laboratory license.' });
+        }
+        geminiApiKey = license.geminiApiKey;
+      }
+    }
+
+    // Fallback to global settings
+    if (!geminiApiKey) {
+      const apiSetting = await prisma.setting.findUnique({
+        where: { key: 'lab_settings' }
+      });
+      if (apiSetting) {
+        try {
+          const settingsObj = JSON.parse(apiSetting.value);
+          geminiApiKey = settingsObj.geminiApiKey;
+        } catch (e) {}
+      }
     }
 
     const resolved = await mkeService.resolveParameterAI(q, geminiApiKey);
+
+    // Increment quota count
+    if (resolved && licenseId) {
+      await prisma.license.update({
+        where: { id: licenseId },
+        data: { geminiQuotaCount: { increment: 1 } }
+      });
+    }
+
     res.json(resolved);
   } catch (error: any) {
     logger.error('Error resolving parameter via AI:', error);

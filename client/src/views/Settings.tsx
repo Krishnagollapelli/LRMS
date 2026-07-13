@@ -498,133 +498,137 @@ export default function Settings() {
           </div>
 
           {/* Email Settings */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-800 dark:text-white">2. Email Delivery Setup (SMTP)</h2>
-              <input
-                type="checkbox"
-                checked={emailEnabled}
-                onChange={e => setEmailEnabled(e.target.checked)}
-                className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
-              />
-            </div>
-
-            {emailEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm animate-[accordion-down_0.2s_ease-out]">
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Host</label>
-                  <input
-                    type="text"
-                    value={smtpHost}
-                    onChange={e => setSmtpHost(e.target.value)}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Port</label>
-                  <input
-                    type="number"
-                    value={smtpPort}
-                    onChange={e => setSmtpPort(Number(e.target.value))}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP User</label>
-                  <input
-                    type="text"
-                    value={smtpUser}
-                    onChange={e => setSmtpUser(e.target.value)}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Password</label>
-                  <input
-                    type="password"
-                    value={smtpPass}
-                    onChange={e => setSmtpPass(e.target.value)}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Sender Email</label>
-                  <input
-                    type="text"
-                    placeholder="E.g., reports@lab.com"
-                    value={smtpSender}
-                    onChange={e => setSmtpSender(e.target.value)}
-                    className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                  />
-                </div>
+          {activeUser?.role === 'SUPER_ADMIN' && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h2 className="text-base font-bold text-slate-800 dark:text-white">2. Email Delivery Setup (SMTP)</h2>
+                <input
+                  type="checkbox"
+                  checked={emailEnabled}
+                  onChange={e => setEmailEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500"
+                />
               </div>
-            )}
-          </div>
+
+              {emailEnabled && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm animate-[accordion-down_0.2s_ease-out]">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Host</label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={e => setSmtpHost(e.target.value)}
+                      className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Port</label>
+                    <input
+                      type="number"
+                      value={smtpPort}
+                      onChange={e => setSmtpPort(Number(e.target.value))}
+                      className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP User</label>
+                    <input
+                      type="text"
+                      value={smtpUser}
+                      onChange={e => setSmtpUser(e.target.value)}
+                      className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">SMTP Password</label>
+                    <input
+                      type="password"
+                      value={smtpPass}
+                      onChange={e => setSmtpPass(e.target.value)}
+                      className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Sender Email</label>
+                    <input
+                      type="text"
+                      placeholder="E.g., reports@lab.com"
+                      value={smtpSender}
+                      onChange={e => setSmtpSender(e.target.value)}
+                      className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* WhatsApp & Gemini Keys */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
-            <h2 className="text-base font-bold text-slate-850 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">3. API Credentials & Integrations</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Gemini AI API Key (for Medical Knowledge Resolver)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="Enter Gemini API Key..."
-                    value={geminiKey}
-                    onChange={e => setGeminiKey(e.target.value)}
-                    className="flex-1 px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestGemini}
-                    disabled={testingGemini}
-                    className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-all"
-                  >
-                    {testingGemini ? 'Testing...' : 'Test Connection'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100/60 dark:border-slate-800/40">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Enable WhatsApp Cloud API Integration</span>
-                  <input
-                    type="checkbox"
-                    checked={whatsappEnabled}
-                    onChange={e => setWhatsappEnabled(e.target.checked)}
-                    className="w-4 h-4 rounded text-teal-600 focus:ring-teal-505"
-                  />
-                </div>
-
-                {whatsappEnabled && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm animate-[accordion-down_0.2s_ease-out]">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-505 mb-1 uppercase tracking-wider">Meta Graph API Key</label>
-                      <input
-                        type="password"
-                        placeholder="Bearer token"
-                        value={whatsappKey}
-                        onChange={e => setWhatsappKey(e.target.value)}
-                        className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-505 mb-1 uppercase tracking-wider">WhatsApp Phone ID</label>
-                      <input
-                        type="text"
-                        placeholder="Meta Phone Number ID"
-                        value={whatsappId}
-                        onChange={e => setWhatsappId(e.target.value)}
-                        className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
-                      />
-                    </div>
+          {activeUser?.role === 'SUPER_ADMIN' && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
+              <h2 className="text-base font-bold text-slate-850 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">3. API Credentials & Integrations</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Gemini AI API Key (for Medical Knowledge Resolver)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Enter Gemini API Key..."
+                      value={geminiKey}
+                      onChange={e => setGeminiKey(e.target.value)}
+                      className="flex-1 px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTestGemini}
+                      disabled={testingGemini}
+                      className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-all"
+                    >
+                      {testingGemini ? 'Testing...' : 'Test Connection'}
+                    </button>
                   </div>
-                )}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100/60 dark:border-slate-800/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Enable WhatsApp Cloud API Integration</span>
+                    <input
+                      type="checkbox"
+                      checked={whatsappEnabled}
+                      onChange={e => setWhatsappEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-505"
+                    />
+                  </div>
+
+                  {whatsappEnabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm animate-[accordion-down_0.2s_ease-out]">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-550 mb-1 uppercase tracking-wider">Meta Graph API Key</label>
+                        <input
+                          type="password"
+                          placeholder="Bearer token"
+                          value={whatsappKey}
+                          onChange={e => setWhatsappKey(e.target.value)}
+                          className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-555 mb-1 uppercase tracking-wider">WhatsApp Phone ID</label>
+                        <input
+                          type="text"
+                          placeholder="Meta Phone Number ID"
+                          value={whatsappId}
+                          onChange={e => setWhatsappId(e.target.value)}
+                          className="w-full px-3.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <button
             type="submit"
