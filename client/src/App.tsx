@@ -159,14 +159,14 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" richColors />
-      <LicenseGuard>
-        <ErrorBoundary>
-          <HashRouter>
-            {!token ? (
-              <Routes>
-                <Route path="*" element={<Login />} />
-              </Routes>
-            ) : (
+      <ErrorBoundary>
+        <HashRouter>
+          {!token ? (
+            <Routes>
+              <Route path="*" element={<Login />} />
+            </Routes>
+          ) : (
+            <LicenseGuard>
               <div className="flex h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 text-slate-800 dark:text-slate-100 overflow-hidden">
                 
                 {/* Left Navigation Sidebar */}
@@ -189,10 +189,10 @@ export default function App() {
                   </Routes>
                 </main>
               </div>
-            )}
-          </HashRouter>
-        </ErrorBoundary>
-      </LicenseGuard>
+            </LicenseGuard>
+          )}
+        </HashRouter>
+      </ErrorBoundary>
     </QueryClientProvider>
   );
 }
