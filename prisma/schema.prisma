@@ -7,67 +7,149 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator client_server {
+  provider = "prisma-client-js"
+  output   = "../server/node_modules/@prisma/client"
+}
+
+model Laboratory {
+  id             String    @id @default(uuid())
+  name           String
+  ownerName      String
+  phone          String
+  email          String
+  address        String
+  logo           String?
+  licenseExpiry  DateTime?
+  subscription   String    @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "SUSPENDED"
+  databaseStatus String    @default("ACTIVE")
+  geminiApiKey   String    @default("")
+  openaiApiKey   String    @default("")
+  smtpHost       String    @default("")
+  smtpPort       Int       @default(587)
+  smtpUser       String    @default("")
+  smtpPass       String    @default("")
+  smtpFromEmail  String    @default("")
+  smtpFromName   String    @default("")
+  whatsappApiKey String    @default("")
+  whatsappPhoneId String   @default("")
+  status         String    @default("ACTIVE")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  users             User[]
+  doctors           Doctor[]
+  patients          Patient[]
+  visits            Visit[]
+  units             Unit[]
+  parameters        Parameter[]
+  referenceRanges   ReferenceRange[]
+  tests             Test[]
+  reports           Report[]
+  templates         Template[]
+  prices            Price[]
+  apiKeys           APIKey[]
+  licenses          License[]
+  auditLogs         AuditLog[]
+  activityLogs      ActivityLog[]
+  settings          Setting[]
+  analyzerProfiles  AnalyzerProfile[]
+}
+
 model User {
-  id        String    @id @default(uuid())
-  username  String    @unique
-  password  String
-  name      String
-  role      String    // "ADMIN" | "TECHNICIAN"
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // For soft deletes
-  auditLogs AuditLog[]
-  licenseId String?
-  license   License?  @relation(fields: [licenseId], references: [id])
+  id                 String              @id @default(uuid())
+  username           String              @unique
+  password           String
+  name               String
+  role               String              // "SUPER_ADMIN" | "TECHNICIAN"
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  auditLogs          AuditLog[]
+  activityLogs       ActivityLog[]
+  technicianSettings TechnicianSettings?
+
+  laboratoryId       String?
+  laboratory         Laboratory?         @relation(fields: [laboratoryId], references: [id])
+  licenseId          String?
+  license            License?            @relation(fields: [licenseId], references: [id])
+}
+
+model TechnicianSettings {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme           String   @default("light")
+  language        String   @default("en")
+  printerName     String   @default("")
+  paperSize       String   @default("A4")
+  margins         String   @default("normal")
+  defaultTemplate String   @default("")
+  signature       String?
+  notifications   String   @default("{}") // JSON config
+  shortcuts       String   @default("{}") // JSON config
+  dashboardLayout String   @default("default")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Doctor {
-  id                 String    @id @default(uuid())
+  id                 String     @id @default(uuid())
   name               String
   qualification      String
   hospital           String
   registrationNumber String
   phone              String
-  isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
   reports            Report[]
   visits             Visit[]
+
+  laboratoryId       String     @default("default-lab")
+  laboratory         Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
   @@index([name])
 }
 
 model Patient {
-  id        String    @id // E.g. PAT-2026-00001
-  name      String
-  age       Int?
-  ageUnit   String?   // "YEARS" | "MONTHS" | "DAYS"
-  gender    String?   // "MALE" | "FEMALE" | "OTHER"
-  phone     String?
-  remarks   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  reports   Report[]
-  visits    Visit[]
+  id           String     @id
+  name         String
+  age          Int?
+  ageUnit      String?    // "YEARS" | "MONTHS" | "DAYS"
+  gender       String?    // "MALE" | "FEMALE" | "OTHER"
+  phone        String?
+  remarks      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+  reports      Report[]
+  visits       Visit[]
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
   @@index([name])
   @@index([phone])
 }
 
 model Visit {
-  id        String    @id // E.g. VIS-YYYYMMDD-XXXX
-  patientId String
-  patient   Patient   @relation(fields: [patientId], references: [id])
-  doctorId  String
-  doctor    Doctor    @relation(fields: [doctorId], references: [id])
-  visitDate DateTime  @default(now())
-  status    String    @default("WAITING") // "WAITING" | "SAMPLE_COLLECTED" | "TESTING" | "DRAFT" | "PENDING_VERIFICATION" | "VERIFIED" | "PRINTED" | "DELIVERED"
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  reports   Report[]
+  id           String     @id
+  patientId    String
+  patient      Patient    @relation(fields: [patientId], references: [id])
+  doctorId     String
+  doctor       Doctor     @relation(fields: [doctorId], references: [id])
+  visitDate    DateTime   @default(now())
+  status       String     @default("WAITING") // "WAITING" | "SAMPLE_COLLECTED" | ...
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+  reports      Report[]
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
   @@index([patientId])
   @@index([doctorId])
@@ -75,21 +157,24 @@ model Visit {
 }
 
 model Unit {
-  id          String      @id @default(uuid())
-  name        String      @unique
-  description String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
-  parameters  Parameter[]
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+  parameters   Parameter[]
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 }
 
 model Parameter {
   id               String           @id @default(uuid())
   name             String
   shortCode        String
-  aliases          String?          // Comma-separated or JSON array string
+  aliases          String?
   category         String
   unitId           String
   unit             Unit             @relation(fields: [unitId], references: [id])
@@ -103,23 +188,31 @@ model Parameter {
   testParameters   TestParameter[]
   reportResults    ReportResult[]
 
+  reportId         String?          // For temporary changes scoped to a single report
+  laboratoryId     String           @default("default-lab")
+  laboratory       Laboratory       @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+
   @@index([name])
 }
 
 model ReferenceRange {
-  id          String    @id @default(uuid())
-  parameterId String
-  parameter   Parameter @relation(fields: [parameterId], references: [id], onDelete: Cascade)
-  gender      String    // "MALE" | "FEMALE" | "ALL"
-  ageMin      Float     // in years
-  ageMax      Float     // in years
-  minVal      Float?
-  maxVal      Float?
-  displayText String
-  condition   String    @default("ADULT") // "ADULT" | "CHILD" | "PREGNANCY" | "ELDERLY"
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id           String     @id @default(uuid())
+  parameterId  String
+  parameter    Parameter  @relation(fields: [parameterId], references: [id], onDelete: Cascade)
+  gender       String
+  ageMin       Float
+  ageMax       Float
+  minVal       Float?
+  maxVal       Float?
+  displayText  String
+  condition    String     @default("ADULT")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  reportId     String?    // Scoped to report if temporary
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 }
 
 model Test {
@@ -137,6 +230,11 @@ model Test {
   deletedAt      DateTime?
   testParameters TestParameter[]
   reportTests    ReportTest[]
+  prices         Price[]
+
+  reportId       String?         // Scoped to report if temporary
+  laboratoryId   String          @default("default-lab")
+  laboratory     Laboratory      @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
   @@index([name])
   @@index([shortCode])
@@ -153,7 +251,7 @@ model TestParameter {
 }
 
 model Report {
-  id               String            @id // E.g. REP-20260708-0001
+  id               String            @id
   visitId          String?
   visit            Visit?            @relation(fields: [visitId], references: [id], onDelete: Cascade)
   patientId        String
@@ -162,8 +260,9 @@ model Report {
   doctor           Doctor            @relation(fields: [doctorId], references: [id])
   sampleId         String
   registrationDate DateTime
-  status           String            @default("PENDING") // "DRAFT" | "PENDING_VERIFICATION" | "VERIFIED" | "PRINTED" | "CANCELLED"
+  status           String            @default("PENDING")
   remarks          String?
+  templateOverride String?           // Custom layout settings (header, footer, font, margins)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   deletedAt        DateTime?
@@ -171,6 +270,9 @@ model Report {
   results          ReportResult[]
   deliveryHistory  DeliveryHistory[]
   billing          Billing?
+
+  laboratoryId     String            @default("default-lab")
+  laboratory       Laboratory        @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
   @@index([patientId])
   @@index([doctorId])
@@ -214,30 +316,40 @@ model DeliveryHistory {
 }
 
 model AnalyzerProfile {
-  id             String   @id @default(uuid())
+  id             String     @id @default(uuid())
   name           String
   model          String
-  connectionType String   // "SERIAL" | "TCP" | "FILE"
-  config         String   // JSON configuration string mapping machine channels to parameters
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  connectionType String     // "SERIAL" | "TCP" | "FILE"
+  config         String     // JSON config
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  laboratoryId   String     @default("default-lab")
+  laboratory     Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 }
 
 model Setting {
-  id    String @id @default(uuid())
-  key   String @unique
-  value String // JSON string value
+  id           String     @id @default(uuid())
+  key          String     @unique
+  value        String     // JSON string
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  details   String
-  ipAddress String?
-  timestamp DateTime @default(now())
+  id           String      @id @default(uuid())
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+  action       String
+  details      String
+  ipAddress    String?
+  timestamp    DateTime    @default(now())
+  device       String?     // Device identifier details
+
+  laboratoryId String?     @default("default-lab")
+  laboratory   Laboratory? @relation(fields: [laboratoryId], references: [id])
 }
 
 model Billing {
@@ -250,8 +362,8 @@ model Billing {
   finalPrice      Float
   paidAmount      Float    @default(0)
   balance         Float    @default(0)
-  paymentStatus   String   // "PAID" | "PARTIAL" | "UNPAID"
-  paymentMethod   String   // "CASH" | "UPI" | "CARD" | "CREDIT" | "MIXED"
+  paymentStatus   String
+  paymentMethod   String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -259,32 +371,96 @@ model Billing {
 model License {
   id             String             @id @default(uuid())
   labName        String
-  licenseType    String             @default("SINGLE") // SINGLE, MULTI, UNLIMITED
+  licenseType    String             @default("SINGLE")
   maxDevices     Int                @default(1)
-  status         String             @default("ACTIVE") // ACTIVE, EXPIRED, SUSPENDED
+  status         String             @default("ACTIVE")
   activationDate DateTime?
   expiryDate     DateTime?
   createdAt      DateTime           @default(now())
+  geminiApiKey   String             @default("")
+  geminiQuotaLimit Int              @default(100)
+  geminiQuotaCount Int              @default(0)
+  whatsappEnabled  Boolean          @default(false)
+  whatsappApiKey   String             @default("")
+  whatsappPhoneId  String             @default("")
   users          User[]
   devices        RegisteredDevice[]
+
+  laboratoryId   String             @default("default-lab")
+  laboratory     Laboratory         @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 }
 
 model RegisteredDevice {
-  id               String   @id // Browser-generated UUID
+  id               String   @id
   licenseId        String
   license          License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
   browserInfo      String?
   os               String?
   registrationDate DateTime @default(now())
   lastActive       DateTime @default(now())
-  status           String   @default("ACTIVE") // ACTIVE, BLOCKED
+  status           String   @default("ACTIVE")
 }
 
 model SyncQueue {
   id        String   @id @default(uuid())
-  action    String   // CREATE, UPDATE, DELETE
-  model     String   // Patient, Report, Doctor, Billing, Setting
+  action    String
+  model     String
   recordId  String
   payload   String
   createdAt DateTime @default(now())
+}
+
+model Template {
+  id             String     @id @default(uuid())
+  name           String
+  header         String?
+  footer         String?
+  margins        String?
+  font           String?
+  sections       String?
+  parameterOrder String?
+  reportId       String?
+
+  laboratoryId   String     @default("default-lab")
+  laboratory     Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Price {
+  id           String     @id @default(uuid())
+  testId       String
+  test         Test       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  price        Float
+  reportId     String?
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model APIKey {
+  id           String     @id @default(uuid())
+  name         String     // "GEMINI" | "OPENAI" | "WHATSAPP"
+  key          String
+
+  laboratoryId String     @default("default-lab")
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model ActivityLog {
+  id           String      @id @default(uuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action       String
+  details      String
+  ipAddress    String?
+  userAgent    String?
+  timestamp    DateTime    @default(now())
+
+  laboratoryId String?     @default("default-lab")
+  laboratory   Laboratory? @relation(fields: [laboratoryId], references: [id])
 }
