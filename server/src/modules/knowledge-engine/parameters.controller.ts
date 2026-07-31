@@ -8,14 +8,10 @@ import { KnowledgeEngineService } from './knowledgeEngine.service.js';
 export const parametersRouter = Router();
 const mkeService = new KnowledgeEngineService();
 
-// Get all parameters — server-side search + pagination
+// Get all parameters — raw array for client-side search and caching
 parametersRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { category, isActive, q, page = '1', limit = '100' } = req.query;
-    const pageNum = Math.max(1, parseInt(page as string) || 1);
-    const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 100));
-    const skip = (pageNum - 1) * limitNum;
-
+    const { category, isActive, q } = req.query;
     const where: any = { deletedAt: null };
 
     if (category) {
@@ -34,34 +30,23 @@ parametersRouter.get('/', authenticateToken, async (req: Request, res: Response)
       ];
     }
 
-    const [parameters, total] = await Promise.all([
-      prisma.parameter.findMany({
-        where,
-        include: {
-          unit: true,
-          referenceRanges: {
-            where: { deletedAt: null }
-          }
-        },
-        orderBy: { name: 'asc' },
-        skip,
-        take: limitNum
-      }),
-      prisma.parameter.count({ where })
-    ]);
+    const parameters = await prisma.parameter.findMany({
+      where,
+      include: {
+        unit: true,
+        referenceRanges: {
+          where: { deletedAt: null }
+        }
+      },
+      orderBy: { name: 'asc' }
+    });
 
     const formatted = parameters.map(p => ({
       ...p,
       aliases: p.aliases ? p.aliases.split(',') : []
     }));
 
-    res.json({
-      data: formatted,
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum)
-    });
+    res.json(formatted);
   } catch (error: any) {
     logger.error('Error fetching parameters:', error);
     res.status(500).json({ error: error.message });
