@@ -72,7 +72,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow all origins for local Desktop Electron client
+  origin: true, // Dynamically reflect origin to support custom headers & credentials
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' })); // Support base64 image uploads
