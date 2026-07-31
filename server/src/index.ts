@@ -83,22 +83,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start Server (only if not running under Vercel Serverless)
 if (!process.env.VERCEL) {
-  const server = app.listen(PORT, async () => {
+  app.listen(PORT, async () => {
     logger.info(`Laboratory API Server running on port ${PORT}`);
-    // Seed the hardcoded super admin account
-    await ensureSuperAdmin();
-  });
-
-  // Handle graceful shutdown
-  process.on('SIGTERM', () => {
-    logger.info('SIGTERM signal received. Closing HTTP server and database connections.');
-    server.close(() => {
-      prisma.$disconnect().then(() => {
-        logger.info('Database disconnected. Safe shutdown complete.');
-        process.exit(0);
-      });
-    });
   });
 }
+
+// Ensure the hardcoded super admin account always exists on boot (works on both local and Vercel serverless)
+ensureSuperAdmin();
 
 export default app;
