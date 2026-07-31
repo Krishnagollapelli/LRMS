@@ -19,6 +19,26 @@ import { superAdminRouter } from './modules/super-admin/superAdmin.controller.js
 // Ensure the hardcoded super admin account always exists
 async function ensureSuperAdmin() {
   try {
+    // Ensure default laboratory exists
+    const defaultLab = await prisma.laboratory.findUnique({ where: { id: 'default-lab' } });
+    if (!defaultLab) {
+      await prisma.laboratory.create({
+        data: {
+          id: 'default-lab',
+          name: 'Default Laboratory',
+          ownerName: 'Krishna',
+          phone: 'N/A',
+          email: 'krishna@lrms.com',
+          address: 'Main Lab Address',
+          logo: null,
+          subscription: 'ACTIVE',
+          databaseStatus: 'ACTIVE',
+          status: 'ACTIVE'
+        }
+      });
+      logger.info('Default laboratory "default-lab" created during boot.');
+    }
+
     const existing = await prisma.user.findFirst({ where: { username: 'krishna' } });
     if (!existing) {
       const hashed = bcrypt.hashSync('Krishna2006', 10);

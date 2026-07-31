@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api.js';
 import type { Parameter, Unit, Test, AIResolveResult } from 'shared';
+import SaveModeDialog from '../components/SaveModeDialog.js';
 import { 
   Plus, 
   Search, 
@@ -22,6 +23,11 @@ import { toast } from 'sonner';
 export default function KnowledgeEngine() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'parameters' | 'templates' | 'units'>('parameters');
+
+  const [showTestDialog, setShowTestDialog] = useState(false);
+  const [pendingTestPayload, setPendingTestPayload] = useState<any>(null);
+  const [showParamDialog, setShowParamDialog] = useState(false);
+  const [pendingParamPayload, setPendingParamPayload] = useState<any>(null);
 
   // Parameters Tab States
   const [paramSearch, setParamSearch] = useState('');
@@ -214,6 +220,38 @@ export default function KnowledgeEngine() {
       toast.info('Parameter deactivated from active database.');
     }
   });
+
+  const executeCreateParam = async (choice: 'temp' | 'perm') => {
+    setShowParamDialog(false);
+    if (!pendingParamPayload) return;
+
+    const payload = { ...pendingParamPayload };
+    if (choice === 'temp') {
+      const reportId = window.prompt("Please enter the Patient Report ID (e.g. REP-YYYYMMDD-XXXX) to scope this parameter to:");
+      if (!reportId) {
+        toast.error("Report ID is required to create a temporary scoped parameter.");
+        return;
+      }
+      payload.reportId = reportId;
+    }
+    createParamMutation.mutate(payload);
+  };
+
+  const executeCreateTemplate = async (choice: 'temp' | 'perm') => {
+    setShowTestDialog(false);
+    if (!pendingTestPayload) return;
+
+    const payload = { ...pendingTestPayload };
+    if (choice === 'temp') {
+      const reportId = window.prompt("Please enter the Patient Report ID (e.g. REP-YYYYMMDD-XXXX) to scope this test panel to:");
+      if (!reportId) {
+        toast.error("Report ID is required to create a temporary scoped test panel.");
+        return;
+      }
+      payload.reportId = reportId;
+    }
+    saveTemplateMutation.mutate(payload);
+  };
 
   // AI query execution
   const executeAiResolveInModal = async () => {
@@ -443,7 +481,7 @@ export default function KnowledgeEngine() {
       }
     }
 
-    saveTemplateMutation.mutate({
+    const payload = {
       name: newTemplateName,
       shortCode: newTemplateCode,
       category: newTemplateCat,
@@ -452,7 +490,14 @@ export default function KnowledgeEngine() {
         parameterId: p.id,
         sortOrder: p.sortOrder
       }))
-    });
+    };
+
+    if (editingTemplateId) {
+      saveTemplateMutation.mutate(payload);
+    } else {
+      setPendingTestPayload(payload);
+      setShowTestDialog(true);
+    }
   };
 
   return (
@@ -666,7 +711,8 @@ export default function KnowledgeEngine() {
                   if (editingParamId) {
                     updateParamMutation.mutate({ id: editingParamId, data: payload });
                   } else {
-                    createParamMutation.mutate(payload);
+                    setPendingParamPayload(payload);
+                    setShowParamDialog(true);
                   }
                 }} className="space-y-4">
 
@@ -1303,6 +1349,25 @@ export default function KnowledgeEngine() {
           )}
         </div>
       )}
+      <SaveModeDialog
+        isOpen={showTestDialog}
+        title="Create Test Panel Template"
+        message="You are creating a new test panel template. Would you like to save this template permanently as a laboratory default, or scope it to a specific report?"
+        tempLabel="Use only for this report"
+        permLabel="Save permanently"
+        onSelect={(choice) => executeCreateTemplate(choice)}
+        onClose={() => setShowTestDialog(false)}
+      />
+
+      <SaveModeDialog
+        isOpen={showParamDialog}
+        title="Create Master Parameter"
+        message="You are creating a new diagnostic parameter. Would you like to save this parameter permanently to the laboratory master library, or scope it to a specific report?"
+        tempLabel="Use only for this report"
+        permLabel="Save permanently"
+        onSelect={(choice) => executeCreateParam(choice)}
+        onClose={() => setShowParamDialog(false)}
+      />
 
     </div>
   );

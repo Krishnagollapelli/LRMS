@@ -51,7 +51,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     // Sign JWT
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, licenseId: user.licenseId },
+      { id: user.id, username: user.username, role: user.role, licenseId: user.licenseId, laboratoryId: user.laboratoryId },
       JWT_SECRET,
       { expiresIn: '24h' }
     );

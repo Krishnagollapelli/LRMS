@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, API_BASE_URL } from '../utils/api.js';
 import type { Report, Parameter } from 'shared';
+import SaveModeDialog from '../components/SaveModeDialog.js';
 import { useAppStore } from '../store/useStore.js';
 import { 
   Save, 
@@ -33,6 +34,8 @@ export default function ReportEntry() {
   const [status, setStatus] = useState<any>('PENDING');
   const [isDirty, setIsDirty] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState('');
+  const [showRangeDialog, setShowRangeDialog] = useState(false);
+  const [pendingSaveStatus, setPendingSaveStatus] = useState('PENDING');
   
   // Custom overlays
   const [showPreview, setShowPreview] = useState(false);
@@ -421,6 +424,49 @@ export default function ReportEntry() {
   };
 
   const handleSave = (finalStatus: string = 'PENDING') => {
+    let rangesChanged = false;
+    if (report) {
+      results.forEach(r => {
+        const orig = report.results.find(or => or.parameterId === r.parameterId);
+        if (orig && r.referenceRangeText !== orig.referenceRangeText) {
+          rangesChanged = true;
+        }
+      });
+    }
+
+    if (rangesChanged) {
+      setPendingSaveStatus(finalStatus);
+      setShowRangeDialog(true);
+    } else {
+      executeSave(finalStatus, false);
+    }
+  };
+
+  const executeSave = async (finalStatus: string, updateDefaults: boolean) => {
+    setShowRangeDialog(false);
+    if (updateDefaults && report) {
+      const changed = results.filter(r => {
+        const orig = report.results.find(or => or.parameterId === r.parameterId);
+        return orig && r.referenceRangeText !== orig.referenceRangeText;
+      });
+
+      try {
+        await Promise.all(changed.map(r => 
+          api.put(`/mke/parameters/${r.parameterId}`, {
+            referenceRanges: [{
+              gender: 'ALL',
+              ageMin: 0,
+              ageMax: 120,
+              displayText: r.referenceRangeText
+            }]
+          })
+        ));
+        toast.success('Master parameter reference ranges updated permanently!');
+      } catch (e) {
+        toast.error('Failed to update master reference ranges.');
+      }
+    }
+
     saveMutation.mutate({
       status: finalStatus,
       remarks,
@@ -432,6 +478,36 @@ export default function ReportEntry() {
         remarks: r.remarks
       }))
     });
+  };
+
+  const [showCreateParamDialog, setShowCreateParamDialog] = useState(false);
+  const [pendingParamName, setPendingParamName] = useState('');
+
+  const handleCreateParameterInline = (name: string) => {
+    setPendingParamName(name);
+    setShowCreateParamDialog(true);
+  };
+
+  const executeCreateParamInline = async (choice: 'temp' | 'perm') => {
+    setShowCreateParamDialog(false);
+    try {
+      const code = pendingParamName.slice(0, 5).toUpperCase().replace(/\s/g, '');
+      const payload: any = {
+        name: pendingParamName,
+        shortCode: code,
+        category: 'General',
+        aliases: [],
+        referenceRanges: []
+      };
+      if (choice === 'temp') {
+        payload.reportId = id;
+      }
+      const newParam = await api.post('/mke/parameters', payload);
+      toast.success(`Parameter "${pendingParamName}" created successfully!`);
+      handleAddParameter(newParam);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to create parameter.');
+    }
   };
 
   const triggerShare = (channel: 'EMAIL' | 'WHATSAPP') => {
@@ -779,8 +855,15 @@ export default function ReportEntry() {
                   </button>
                 ))}
                 {paramQuery && paramSuggestions.length === 0 && (
-                  <div className="text-center py-4 text-xs text-slate-400">
-                    No parameter found matching "{paramQuery}".
+                  <div className="text-center py-4 text-xs text-slate-400 space-y-2">
+                    <p>No parameter found matching "{paramQuery}".</p>
+                    <button
+                      type="button"
+                      onClick={() => handleCreateParameterInline(paramQuery)}
+                      className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded text-[10px] font-bold transition-colors"
+                    >
+                      Create Custom Parameter "{paramQuery}"
+                    </button>
                   </div>
                 )}
               </div>
@@ -844,6 +927,24 @@ export default function ReportEntry() {
           </div>
         </div>
       )}
+      <SaveModeDialog
+        isOpen={showRangeDialog}
+        title="Save Reference Range Override"
+        message="You edited the biological reference range for one or more parameters. Would you like to save these reference ranges permanently to the laboratory master library, or use them only for this patient report?"
+        tempLabel="Use only this report"
+        permLabel="Save permanently"
+        onSelect={(choice) => executeSave(pendingSaveStatus, choice === 'perm')}
+      />
+
+      <SaveModeDialog
+        isOpen={showCreateParamDialog}
+        title="Create Custom Parameter"
+        message={`You are adding a new parameter "${pendingParamName}". Would you like to save this parameter permanently to the laboratory master library, or use it only for this patient report?`}
+        tempLabel="Use only for this report"
+        permLabel="Save permanently"
+        onSelect={(choice) => executeCreateParamInline(choice)}
+        onClose={() => setShowCreateParamDialog(false)}
+      />
 
     </div>
   );

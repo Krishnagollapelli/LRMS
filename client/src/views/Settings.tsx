@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/api.js';
 import { useAppStore } from '../store/useStore.js';
 import type { Doctor, User, LabSettings, Parameter } from 'shared';
+import SaveModeDialog from '../components/SaveModeDialog.js';
 import { 
   Building, 
   ShieldCheck, 
@@ -25,7 +26,20 @@ import { toast } from 'sonner';
 export default function Settings() {
   const queryClient = useQueryClient();
   const activeUser = useAppStore(state => state.user);
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'doctors' | 'users' | 'analyzers' | 'audit' | 'print' | 'backup' | 'license'>('profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'doctors' | 'users' | 'analyzers' | 'audit' | 'print' | 'backup' | 'license' | 'preferences'>(
+    activeUser?.role === 'TECHNICIAN' ? 'preferences' : 'profile'
+  );
+
+  // Technician preferences form states
+  const [techTheme, setTechTheme] = useState('light');
+  const [techLanguage, setTechLanguage] = useState('en');
+  const [techPrinter, setTechPrinter] = useState('');
+  const [techPaper, setTechPaper] = useState('A4');
+  const [techMargins, setTechMargins] = useState('normal');
+  const [techTemplate, setTechTemplate] = useState('');
+  const [techShortcuts, setTechShortcuts] = useState(true);
+  const [techLayout, setTechLayout] = useState('default');
+  const [techSignature, setTechSignature] = useState('');
 
   // Profile Form States
   const [labName, setLabName] = useState('');
@@ -43,6 +57,8 @@ export default function Settings() {
   const [smtpSender, setSmtpSender] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
   const [testingGemini, setTestingGemini] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [pendingSettingsPayload, setPendingSettingsPayload] = useState<any>(null);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [whatsappKey, setWhatsappKey] = useState('');
@@ -137,6 +153,43 @@ export default function Settings() {
     queryKey: ['audit-logs'],
     queryFn: () => api.get('/settings/logs'),
     enabled: activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN'
+  });
+
+  // Load technician-specific settings
+  const { data: techSettings } = useQuery<any>({
+    queryKey: ['technician-settings'],
+    queryFn: () => api.get('/settings/technician'),
+    enabled: activeUser?.role === 'TECHNICIAN'
+  });
+
+  useEffect(() => {
+    if (techSettings) {
+      setTechTheme(techSettings.theme || 'light');
+      setTechLanguage(techSettings.language || 'en');
+      setTechPrinter(techSettings.printerName || '');
+      setTechPaper(techSettings.paperSize || 'A4');
+      setTechMargins(techSettings.margins || 'normal');
+      setTechTemplate(techSettings.defaultTemplate || '');
+      try {
+        const parsed = JSON.parse(techSettings.shortcuts || '{}');
+        setTechShortcuts(parsed.enabled !== false);
+      } catch (e) {
+        setTechShortcuts(true);
+      }
+      setTechLayout(techSettings.dashboardLayout || 'default');
+      setTechSignature(techSettings.signature || '');
+    }
+  }, [techSettings]);
+
+  const updateTechSettingsMutation = useMutation({
+    mutationFn: (data: any) => api.put('/settings/technician', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technician-settings'] });
+      toast.success('Your personal preferences saved successfully.');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update preferences.');
+    }
   });
 
   // Mutations
@@ -246,7 +299,7 @@ export default function Settings() {
       return isNaN(num) ? null : num;
     };
 
-    updateSettingsMutation.mutate({
+    const payload = {
       labName,
       labAddress,
       labPhone,
@@ -279,7 +332,31 @@ export default function Settings() {
       xRegDate: sanitizeNum(xRegDate),
       yRegDate: sanitizeNum(yRegDate),
       tableTopY: sanitizeNum(tableTopY)
-    });
+    };
+
+    setPendingSettingsPayload(payload);
+    setShowTemplateDialog(true);
+  };
+
+  const executeSaveSettings = async (choice: 'temp' | 'perm') => {
+    setShowTemplateDialog(false);
+    if (!pendingSettingsPayload) return;
+
+    if (choice === 'perm') {
+      updateSettingsMutation.mutate(pendingSettingsPayload);
+    } else {
+      const reportId = window.prompt("Please enter the Patient Report ID (e.g. REP-YYYYMMDD-XXXX) to apply this template layout to:");
+      if (!reportId) {
+        toast.error("Report ID is required to apply temporary overrides.");
+        return;
+      }
+      try {
+        await api.put(`/reports/${reportId}/template`, { templateOverride: pendingSettingsPayload });
+        toast.success(`Template overrides applied successfully to report ${reportId}!`);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to apply template overrides to the report.");
+      }
+    }
   };
 
   const handleDoctorSubmit = (e: React.FormEvent) => {
@@ -369,6 +446,18 @@ export default function Settings() {
           <span>Print Alignment</span>
         </button>
 
+        <button
+          onClick={() => setActiveSubTab('preferences')}
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg border transition-all
+            ${activeSubTab === 'preferences' 
+              ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-600 dark:border-teal-500 text-teal-600 dark:text-teal-400' 
+              : 'border-slate-200 dark:border-slate-800 hover:bg-slate-55 dark:hover:bg-slate-850 text-slate-505'}
+          `}
+        >
+          <Sliders size={15} />
+          <span>My Preferences</span>
+        </button>
+
         {(activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
           <>
             <button
@@ -407,6 +496,227 @@ export default function Settings() {
           </>
         )}
       </div>
+
+      {/* --- TAB: TECHNICIAN PREFERENCES --- */}
+      {activeSubTab === 'preferences' && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            updateTechSettingsMutation.mutate({
+              theme: techTheme,
+              language: techLanguage,
+              printerName: techPrinter,
+              paperSize: techPaper,
+              margins: techMargins,
+              defaultTemplate: techTemplate,
+              shortcuts: JSON.stringify({ enabled: techShortcuts }),
+              dashboardLayout: techLayout,
+              signature: techSignature
+            });
+          }}
+          className="space-y-6"
+        >
+          {/* Theme & Language & Dashboard Layout */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-slate-800 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
+              Personal Preferences
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                  Interface Theme
+                </label>
+                <select
+                  value={techTheme}
+                  onChange={(e) => setTechTheme(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="light">Light Mode</option>
+                  <option value="dark">Dark Mode</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                  Preferred Language
+                </label>
+                <select
+                  value={techLanguage}
+                  onChange={(e) => setTechLanguage(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="en">English (US)</option>
+                  <option value="es">Español (ES)</option>
+                  <option value="fr">Français (FR)</option>
+                  <option value="de">Deutsch (DE)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                  Dashboard Layout
+                </label>
+                <select
+                  value={techLayout}
+                  onChange={(e) => setTechLayout(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+                >
+                  <option value="default">Standard Grid</option>
+                  <option value="compact">Compact List</option>
+                  <option value="analytical">Analytical Charts</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Printer & Margins & default template */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-slate-800 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
+              Print & Template Options
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                  Default Printer Name
+                </label>
+                <input
+                  type="text"
+                  value={techPrinter}
+                  onChange={(e) => setTechPrinter(e.target.value)}
+                  placeholder="e.g. HP-LaserJet-Pro-M404"
+                  className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-805 dark:text-slate-200 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                    Paper Size
+                  </label>
+                  <select
+                    value={techPaper}
+                    onChange={(e) => setTechPaper(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+                  >
+                    <option value="A4">A4</option>
+                    <option value="A5">A5</option>
+                    <option value="Letter">Letter</option>
+                    <option value="Legal">Legal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                    Page Margins
+                  </label>
+                  <select
+                    value={techMargins}
+                    onChange={(e) => setTechMargins(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:outline-none"
+                  >
+                    <option value="normal">Normal (1 in)</option>
+                    <option value="narrow">Narrow (0.5 in)</option>
+                    <option value="wide">Wide (1.5 in)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-550 mb-1.5 uppercase tracking-wider">
+                  Default Report Template
+                </label>
+                <input
+                  type="text"
+                  value={techTemplate}
+                  onChange={(e) => setTechTemplate(e.target.value)}
+                  placeholder="e.g. Standard Biochemistry Template"
+                  className="w-full px-3 py-2 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-sm text-slate-805 dark:text-slate-200 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center pt-6">
+                <label className="relative flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={techShortcuts}
+                    onChange={(e) => setTechShortcuts(e.target.checked)}
+                    className="w-4 h-4 text-teal-600 bg-slate-50 border-slate-200 dark:border-slate-800 rounded focus:ring-teal-500"
+                  />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
+                    Enable keyboard shortcuts & hotkeys
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Technician Signature */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 space-y-4">
+            <h2 className="text-base font-bold text-slate-800 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
+              Personal E-Signature
+            </h2>
+
+            <p className="text-xs text-slate-550">
+              This signature image will be automatically appended to patient diagnostics reports you verify.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="w-40 h-24 bg-slate-55 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg flex items-center justify-center overflow-hidden">
+                {techSignature ? (
+                  <img src={techSignature} alt="Tech Signature" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <span className="text-[10px] text-slate-450 font-bold">No Signature Uploaded</span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg cursor-pointer transition">
+                  <Upload size={14} />
+                  <span>Upload Signature PNG</span>
+                  <input
+                    type="file"
+                    accept="image/png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          setTechSignature(event.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                {techSignature && (
+                  <button
+                    type="button"
+                    onClick={() => setTechSignature('')}
+                    className="block text-red-500 hover:text-red-650 text-[10px] font-bold"
+                  >
+                    Clear Signature Image
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={updateTechSettingsMutation.isPending}
+              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-2 transition"
+            >
+              <Save size={14} />
+              <span>{updateTechSettingsMutation.isPending ? 'Saving Preferences...' : 'Save Preferences'}</span>
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* --- TAB 1: LAB PROFILE --- */}
       {activeSubTab === 'profile' && (
@@ -1488,6 +1798,16 @@ function LicenseKeyManager() {
           </form>
         </div>
       )}
+      <SaveModeDialog
+        isOpen={showTemplateDialog}
+        title="Save Report Template Changes"
+        message="You edited laboratory template configurations (margins, headers, footers, or fonts). Would you like to save these configurations as the laboratory master defaults, or apply them as a layout override to a specific patient report?"
+        tempLabel="Apply only to this report"
+        permLabel="Save as laboratory default"
+        onSelect={(choice) => executeSaveSettings(choice)}
+        onClose={() => setShowTemplateDialog(false)}
+      />
+
     </div>
   );
 }

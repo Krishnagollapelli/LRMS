@@ -10,6 +10,7 @@ export interface AuthenticatedRequest extends Request {
     username: string;
     role: UserRole;
     licenseId?: string | null;
+    laboratoryId?: string | null;
   };
 }
 
@@ -30,7 +31,8 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
       id: decoded.id,
       username: decoded.username,
       role: decoded.role,
-      licenseId: decoded.licenseId
+      licenseId: decoded.licenseId,
+      laboratoryId: decoded.laboratoryId
     };
     next();
   });

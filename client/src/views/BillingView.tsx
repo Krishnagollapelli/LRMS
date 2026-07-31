@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../utils/api.js';
 import { toast } from 'sonner';
 import { ArrowLeft, Printer, Send, Save, CreditCard, Receipt, MessageSquare, Mail } from 'lucide-react';
+import SaveModeDialog from '../components/SaveModeDialog.js';
 
 interface BillingTest {
   testId: string;
@@ -21,6 +22,9 @@ export default function BillingView() {
   const [testPrices, setTestPrices] = useState<BillingTest[]>([]);
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
+
+  // Intercept state
+  const [showPriceDialog, setShowPriceDialog] = useState(false);
 
   // Share form states
   const [shareChannel, setShareChannel] = useState<'WHATSAPP' | 'EMAIL'>('WHATSAPP');
@@ -126,6 +130,27 @@ export default function BillingView() {
 
   // Save bill handler
   const handleSave = () => {
+    const changedTests = testPrices.filter(t => t.chargedPrice !== t.defaultPrice);
+    if (changedTests.length > 0) {
+      setShowPriceDialog(true);
+    } else {
+      executeSave(false);
+    }
+  };
+
+  const executeSave = async (updateDefaults: boolean) => {
+    setShowPriceDialog(false);
+    if (updateDefaults) {
+      const changedTests = testPrices.filter(t => t.chargedPrice !== t.defaultPrice);
+      try {
+        await Promise.all(changedTests.map(t => 
+          api.put(`/mke/tests/${t.testId}`, { defaultPrice: t.chargedPrice })
+        ));
+        toast.success('Master test prices updated permanently!');
+      } catch (e) {
+        toast.error('Failed to update master test prices.');
+      }
+    }
     saveBillingMutation.mutate({
       tests: testPrices.map(t => ({ testId: t.testId, chargedPrice: t.chargedPrice })),
       paidAmount,
@@ -390,6 +415,16 @@ export default function BillingView() {
         </div>
 
       </div>
+
+      <SaveModeDialog
+        isOpen={showPriceDialog}
+        title="Save Price Modification"
+        message="You adjusted the default price for one or more tests in this bill. Would you like to update the master default prices for these tests permanently in the laboratory library, or apply the modified pricing only to this patient?"
+        tempLabel="Apply only to this patient"
+        permLabel="Save as default price"
+        onSelect={(choice) => executeSave(choice === 'perm')}
+        onClose={() => setShowPriceDialog(false)}
+      />
       
     </div>
   );

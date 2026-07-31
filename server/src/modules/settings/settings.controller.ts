@@ -9,8 +9,9 @@ export const settingsRouter = Router();
 // Retrieve global laboratory settings
 settingsRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const settingsRecord = await prisma.setting.findUnique({
-      where: { key: 'lab_settings' }
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
+    const settingsRecord = await prisma.setting.findFirst({
+      where: { key: 'lab_settings', laboratoryId }
     });
 
     if (!settingsRecord) {
@@ -39,6 +40,7 @@ settingsRouter.get('/', authenticateToken, async (req: Request, res: Response) =
       await prisma.setting.create({
         data: {
           key: 'lab_settings',
+          laboratoryId,
           value: JSON.stringify(defaults)
         }
       });
@@ -96,16 +98,20 @@ settingsRouter.put('/', authenticateToken, requireAdmin, async (req: Authenticat
       return res.status(400).json({ error: parsed.error.format() });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const settingsValue = JSON.stringify(parsed.data);
 
-    const updated = await prisma.setting.upsert({
-      where: { key: 'lab_settings' },
-      update: { value: settingsValue },
-      create: { key: 'lab_settings', value: settingsValue }
-    });
+    let updated;
+    const existing = await prisma.setting.findFirst({ where: { key: 'lab_settings', laboratoryId } });
+    if (existing) {
+      updated = await prisma.setting.update({ where: { id: existing.id }, data: { value: settingsValue } });
+    } else {
+      updated = await prisma.setting.create({ data: { key: 'lab_settings', value: settingsValue, laboratoryId } });
+    }
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_LAB_SETTINGS',
         details: 'Updated global laboratory and integrations configurations'
@@ -115,6 +121,93 @@ settingsRouter.put('/', authenticateToken, requireAdmin, async (req: Authenticat
     res.json(JSON.parse(updated.value));
   } catch (error: any) {
     logger.error('Error updating settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Retrieve technician-specific settings
+settingsRouter.get('/technician', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    let settings = await prisma.technicianSettings.findUnique({
+      where: { userId }
+    });
+
+    if (!settings) {
+      settings = await prisma.technicianSettings.create({
+        data: {
+          userId,
+          theme: 'light',
+          language: 'en',
+          printerName: '',
+          paperSize: 'A4',
+          margins: 'normal',
+          defaultTemplate: '',
+          notifications: '{}',
+          shortcuts: '{}',
+          dashboardLayout: 'default'
+        }
+      });
+    }
+
+    res.json(settings);
+  } catch (error: any) {
+    logger.error('Error fetching technician settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update technician-specific settings
+settingsRouter.put('/technician', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const schema = z.object({
+      theme: z.string().optional(),
+      language: z.string().optional(),
+      printerName: z.string().optional(),
+      paperSize: z.string().optional(),
+      margins: z.string().optional(),
+      defaultTemplate: z.string().optional(),
+      signature: z.string().optional().nullable(),
+      notifications: z.string().optional(),
+      shortcuts: z.string().optional(),
+      dashboardLayout: z.string().optional()
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.format() });
+    }
+
+    const updated = await prisma.technicianSettings.upsert({
+      where: { userId },
+      update: parsed.data,
+      create: {
+        userId,
+        theme: parsed.data.theme || 'light',
+        language: parsed.data.language || 'en',
+        printerName: parsed.data.printerName || '',
+        paperSize: parsed.data.paperSize || 'A4',
+        margins: parsed.data.margins || 'normal',
+        defaultTemplate: parsed.data.defaultTemplate || '',
+        signature: parsed.data.signature || null,
+        notifications: parsed.data.notifications || '{}',
+        shortcuts: parsed.data.shortcuts || '{}',
+        dashboardLayout: parsed.data.dashboardLayout || 'default'
+      }
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error('Error updating technician settings:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -157,7 +250,9 @@ settingsRouter.post('/test-gemini', authenticateToken, async (req: Request, res:
 // Get audit logs
 settingsRouter.get('/logs', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const logs = await prisma.auditLog.findMany({
+      where: { laboratoryId },
       include: {
         user: {
           select: { username: true, name: true }
@@ -175,7 +270,9 @@ settingsRouter.get('/logs', authenticateToken, requireAdmin, async (req: Request
 // Get all analyzer profiles
 settingsRouter.get('/analyzers', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const profiles = await prisma.analyzerProfile.findMany({
+      where: { laboratoryId },
       orderBy: { name: 'asc' }
     });
     res.json(profiles);
@@ -200,12 +297,14 @@ settingsRouter.post('/analyzers', authenticateToken, async (req: AuthenticatedRe
       return res.status(400).json({ error: parsed.error.format() });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const profile = await prisma.analyzerProfile.create({
-      data: parsed.data
+      data: { ...parsed.data, laboratoryId }
     });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'CREATE_ANALYZER_PROFILE',
         details: `Created analyzer profile: ${profile.name} (${profile.model})`
@@ -236,6 +335,12 @@ settingsRouter.put('/analyzers/:id', authenticateToken, async (req: Authenticate
       return res.status(400).json({ error: parsed.error.format() });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const existing = await prisma.analyzerProfile.findFirst({ where: { id, laboratoryId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Analyzer profile not found' });
+    }
+
     const profile = await prisma.analyzerProfile.update({
       where: { id },
       data: parsed.data
@@ -243,6 +348,7 @@ settingsRouter.put('/analyzers/:id', authenticateToken, async (req: Authenticate
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_ANALYZER_PROFILE',
         details: `Updated analyzer profile: ${profile.name}`
@@ -259,13 +365,20 @@ settingsRouter.put('/analyzers/:id', authenticateToken, async (req: Authenticate
 // Delete analyzer profile
 settingsRouter.delete('/analyzers/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
+    const existing = await prisma.analyzerProfile.findFirst({ where: { id, laboratoryId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Analyzer profile not found' });
+    }
+
     await prisma.analyzerProfile.delete({
       where: { id }
     });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DELETE_ANALYZER_PROFILE',
         details: `Deleted analyzer profile ID: ${id}`
@@ -302,8 +415,10 @@ settingsRouter.post('/backup/db', authenticateToken, requireAdmin, async (req: R
     copyFileSync(dbPath, backupPath);
     const stats = statSync(backupPath);
 
+    const laboratoryId = (req as any).user?.laboratoryId || 'default-lab';
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: (req as any).user?.id,
         action: 'BACKUP_SQL_DATABASE',
         details: `Created database binary SQL backup copy: ${backupFile} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`
@@ -325,12 +440,13 @@ settingsRouter.post('/backup/db', authenticateToken, requireAdmin, async (req: R
 // Export entire DB as structured JSON data
 settingsRouter.get('/backup/export', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const patients = await prisma.patient.findMany();
-    const doctors = await prisma.doctor.findMany();
-    const parameters = await prisma.parameter.findMany({ include: { referenceRanges: true } });
-    const tests = await prisma.test.findMany({ include: { testParameters: true } });
-    const reports = await prisma.report.findMany({ include: { reportTests: true, results: true } });
-    const settings = await prisma.setting.findMany();
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
+    const patients = await prisma.patient.findMany({ where: { laboratoryId } });
+    const doctors = await prisma.doctor.findMany({ where: { laboratoryId } });
+    const parameters = await prisma.parameter.findMany({ where: { laboratoryId }, include: { referenceRanges: true } });
+    const tests = await prisma.test.findMany({ where: { laboratoryId }, include: { testParameters: true } });
+    const reports = await prisma.report.findMany({ where: { laboratoryId }, include: { reportTests: true, results: true } });
+    const settings = await prisma.setting.findMany({ where: { laboratoryId } });
     const users = await prisma.user.findMany({ select: { id: true, username: true, name: true, role: true, isActive: true } });
 
     const exportPayload = {
@@ -456,8 +572,10 @@ settingsRouter.post('/backup/import', authenticateToken, requireAdmin, async (re
       }
     });
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'IMPORT_JSON_BACKUP',
         details: 'Successfully imported global configurations and records from JSON schema file.'

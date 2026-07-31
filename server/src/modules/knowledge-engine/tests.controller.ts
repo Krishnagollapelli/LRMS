@@ -23,8 +23,9 @@ testsRouter.get('/search', authenticateToken, async (req: Request, res: Response
 // Get all tests templates
 testsRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const tests = await prisma.test.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, laboratoryId },
       include: {
         testParameters: {
           include: {
@@ -61,9 +62,10 @@ testsRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
 // Get single test details
 testsRouter.get('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const { id } = req.params;
-    const test = await prisma.test.findUnique({
-      where: { id },
+    const test = await prisma.test.findFirst({
+      where: { id, laboratoryId },
       include: {
         testParameters: {
           include: {
@@ -124,10 +126,12 @@ testsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res: 
     }
 
     const { name, shortCode, category, defaultPrice = 100, shortcut, description, displayOrder, parameterIds } = parsed.data;
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
 
     // Create test record
     const newTest = await prisma.test.create({
       data: {
+        laboratoryId,
         name,
         shortCode,
         category,
@@ -152,6 +156,7 @@ testsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res: 
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'CREATE_TEST_TEMPLATE',
         details: `Created master test template: ${newTest.name} (${newTest.shortCode})`
@@ -189,7 +194,8 @@ testsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const test = await prisma.test.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const test = await prisma.test.findFirst({ where: { id, laboratoryId } });
     if (!test || test.deletedAt) {
       return res.status(404).json({ error: 'Test template not found' });
     }
@@ -229,6 +235,7 @@ testsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_TEST_TEMPLATE',
         details: `Updated master template config for test: ${test.name}`
@@ -245,10 +252,11 @@ testsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res
 // Duplicate master test template
 testsRouter.post('/:id/duplicate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
 
-    const test = await prisma.test.findUnique({
-      where: { id },
+    const test = await prisma.test.findFirst({
+      where: { id, laboratoryId },
       include: { testParameters: true }
     });
 
@@ -259,6 +267,7 @@ testsRouter.post('/:id/duplicate', authenticateToken, async (req: AuthenticatedR
     // Clone top-level
     const duplicatedTest = await prisma.test.create({
       data: {
+        laboratoryId,
         name: `${test.name} (Copy)`,
         shortCode: `${test.shortCode}_C`,
         category: test.category,
@@ -279,6 +288,7 @@ testsRouter.post('/:id/duplicate', authenticateToken, async (req: AuthenticatedR
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DUPLICATE_TEST_TEMPLATE',
         details: `Duplicated test panel: ${test.name} into ${duplicatedTest.name}`
@@ -295,9 +305,10 @@ testsRouter.post('/:id/duplicate', authenticateToken, async (req: AuthenticatedR
 // Soft Delete test panel
 testsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
 
-    const test = await prisma.test.findUnique({ where: { id } });
+    const test = await prisma.test.findFirst({ where: { id, laboratoryId } });
     if (!test || test.deletedAt) {
       return res.status(404).json({ error: 'Test template not found' });
     }
@@ -309,6 +320,7 @@ testsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, 
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DELETE_TEST_TEMPLATE',
         details: `Deleted test template: ${test.name}`
@@ -325,18 +337,20 @@ testsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, 
 // Bulk Soft Delete test panels
 testsRouter.post('/bulk-delete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: 'Array of test template IDs is required' });
     }
 
     await prisma.test.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, laboratoryId },
       data: { deletedAt: new Date(), isActive: false }
     });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'BULK_DELETE_TEST_TEMPLATES',
         details: `Bulk deleted ${ids.length} test templates`
@@ -365,6 +379,7 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
       return res.status(400).json({ error: 'tests array is required and must not be empty' });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     let createdTests = 0, updatedTests = 0, createdParams = 0, skippedParams = 0;
     const errors: string[] = [];
 
@@ -377,11 +392,12 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
           const pd = paramDefs[i];
           if (!pd.name || !pd.shortCode) { errors.push(`Skipping param in "${name}": missing name/shortCode`); continue; }
           const unitName = pd.unit || 'No Unit';
-          let unit = await prisma.unit.findFirst({ where: { name: unitName } });
-          if (!unit) unit = await prisma.unit.create({ data: { name: unitName } });
-          let param = await prisma.parameter.findFirst({ where: { shortCode: pd.shortCode, deletedAt: null } });
+          let unit = await prisma.unit.findFirst({ where: { name: unitName, laboratoryId } });
+          if (!unit) unit = await prisma.unit.create({ data: { name: unitName, laboratoryId } });
+          let param = await prisma.parameter.findFirst({ where: { shortCode: pd.shortCode, deletedAt: null, laboratoryId } });
           if (!param) {
             param = await prisma.parameter.create({ data: {
+              laboratoryId,
               name: pd.name, shortCode: pd.shortCode,
               category: pd.category || category || 'General',
               unitId: unit.id, decimalPrecision: pd.decimalPrecision ?? 2,
@@ -390,6 +406,7 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
             }});
             if (Array.isArray(pd.referenceRanges) && pd.referenceRanges.length > 0) {
               await prisma.referenceRange.createMany({ data: pd.referenceRanges.map((r: any) => ({
+                laboratoryId,
                 parameterId: param!.id, gender: r.gender || 'ALL',
                 ageMin: r.ageMin ?? 0, ageMax: r.ageMax ?? 120,
                 minVal: r.minVal ?? null, maxVal: r.maxVal ?? null,
@@ -400,7 +417,7 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
           } else { skippedParams++; }
           resolvedParamIds.push({ parameterId: param.id, sortOrder: pd.sortOrder ?? i });
         }
-        let existingTest = await prisma.test.findFirst({ where: { shortCode, deletedAt: null } });
+        let existingTest = await prisma.test.findFirst({ where: { shortCode, deletedAt: null, laboratoryId } });
         if (existingTest) {
           await prisma.test.update({ where: { id: existingTest.id },
             data: { name, category, defaultPrice: defaultPrice ?? 100, shortcut: shortcut || null, description: description || null, displayOrder: displayOrder ?? 0 }
@@ -411,6 +428,7 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
           updatedTests++;
         } else {
           const newTest = await prisma.test.create({ data: {
+            laboratoryId,
             name, shortCode, category, defaultPrice: defaultPrice ?? 100,
             shortcut: shortcut || null, description: description || null, displayOrder: displayOrder ?? 0, isActive: true
           }});
@@ -423,6 +441,7 @@ testsRouter.post('/upload', authenticateToken, async (req: AuthenticatedRequest,
 
     mkeService.rebuildSearchIndex();
     await prisma.auditLog.create({ data: {
+      laboratoryId,
       userId: req.user?.id, action: 'UPLOAD_TESTS',
       details: `Uploaded: ${createdTests} new, ${updatedTests} updated, ${createdParams} params created, ${skippedParams} reused`
     }});

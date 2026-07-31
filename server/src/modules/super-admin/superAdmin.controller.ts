@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../utils/db.js';
 import { authenticateToken, requireSuperAdmin, AuthenticatedRequest } from '../auth/auth.middleware.js';
 import { logger } from '../../utils/logger.js';
+import fs from 'fs';
+import path from 'path';
 
 export const superAdminRouter = Router();
 
@@ -11,19 +13,75 @@ superAdminRouter.use(authenticateToken);
 superAdminRouter.use(requireSuperAdmin);
 
 // ─────────────────────────────────────────────
-// 1. Get all labs / licenses
+// 1. Get Super Admin Dashboard Stats
+// ─────────────────────────────────────────────
+superAdminRouter.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalLabs,
+      activeLabs,
+      inactiveLabs,
+      licenseExpiring,
+      totalReports,
+      totalTechnicians,
+      aiRequestsAgg
+    ] = await Promise.all([
+      prisma.laboratory.count({ where: { deletedAt: null } }),
+      prisma.laboratory.count({ where: { status: 'ACTIVE', deletedAt: null } }),
+      prisma.laboratory.count({ where: { status: 'SUSPENDED', deletedAt: null } }),
+      prisma.laboratory.count({ where: { licenseExpiry: { lte: thirtyDaysLater, gte: now }, deletedAt: null } }),
+      prisma.report.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { role: 'TECHNICIAN', deletedAt: null } }),
+      prisma.license.aggregate({
+        _sum: { geminiQuotaCount: true }
+      })
+    ]);
+
+    // Calculate actual DB storage size in MB
+    let storageMB = 4.8;
+    try {
+      const dbPath = path.resolve('prisma/lrms.db');
+      if (fs.existsSync(dbPath)) {
+        storageMB = fs.statSync(dbPath).size / 1024 / 1024;
+      }
+    } catch (e) {}
+
+    res.json({
+      totalLabs,
+      activeLabs,
+      inactiveLabs,
+      licenseExpiring,
+      totalReports,
+      totalTechnicians,
+      totalStorage: `${storageMB.toFixed(2)} MB`,
+      aiRequests: aiRequestsAgg._sum.geminiQuotaCount || 0,
+      revenue: 0 // Future use
+    });
+  } catch (error: any) {
+    logger.error('SuperAdmin: Error fetching stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 2. Get all Laboratories
 // ─────────────────────────────────────────────
 superAdminRouter.get('/labs', async (req: Request, res: Response) => {
   try {
-    const licenses = await prisma.license.findMany({
+    const labs = await prisma.laboratory.findMany({
+      where: { deletedAt: null },
       include: {
+        licenses: true,
         _count: {
-          select: { users: true, devices: true }
+          select: { users: true }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(licenses);
+    res.json(labs);
   } catch (error: any) {
     logger.error('SuperAdmin: Error fetching labs:', error);
     res.status(500).json({ error: error.message });
@@ -31,28 +89,46 @@ superAdminRouter.get('/labs', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────
-// 2. Register a new lab / license
+// 3. Create a new Laboratory
 // ─────────────────────────────────────────────
 superAdminRouter.post('/labs', async (req: Request, res: Response) => {
   try {
-    const { labName, licenseType, maxDevices, expiryDate } = req.body;
-    if (!labName) {
-      return res.status(400).json({ error: 'Lab name is required' });
+    const { name, ownerName, phone, email, address, logo, licenseExpiry, subscription } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Laboratory name is required' });
     }
 
-    const newLicense = await prisma.license.create({
+    const expiryDate = licenseExpiry ? new Date(licenseExpiry) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    const newLab = await prisma.laboratory.create({
       data: {
-        labName,
-        licenseType: licenseType || 'SINGLE',
-        maxDevices: maxDevices ? Number(maxDevices) : 1,
-        status: 'ACTIVE',
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        activationDate: new Date()
+        name,
+        ownerName: ownerName || 'N/A',
+        phone: phone || 'N/A',
+        email: email || 'N/A',
+        address: address || 'N/A',
+        logo: logo || null,
+        licenseExpiry: expiryDate,
+        subscription: subscription || 'ACTIVE',
+        status: 'ACTIVE'
       }
     });
 
-    logger.info(`SuperAdmin: Registered new lab "${labName}" with license ID ${newLicense.id}`);
-    res.status(201).json(newLicense);
+    // Create associated License record
+    await prisma.license.create({
+      data: {
+        labName: name,
+        licenseType: 'SINGLE',
+        maxDevices: 5,
+        status: 'ACTIVE',
+        expiryDate: expiryDate,
+        activationDate: new Date(),
+        laboratoryId: newLab.id
+      }
+    });
+
+    logger.info(`SuperAdmin: Registered new laboratory "${name}" (ID: ${newLab.id})`);
+    res.status(201).json(newLab);
   } catch (error: any) {
     logger.error('SuperAdmin: Error registering lab:', error);
     res.status(500).json({ error: error.message });
@@ -60,93 +136,116 @@ superAdminRouter.post('/labs', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────
-// 3. Update lab configurations — email fields removed
+// 4. Update Laboratory Config & API Keys
 // ─────────────────────────────────────────────
 superAdminRouter.put('/labs/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const {
-      labName,
-      licenseType,
-      maxDevices,
+      name,
+      ownerName,
+      phone,
+      email,
+      address,
+      logo,
+      licenseExpiry,
+      subscription,
       status,
-      expiryDate,
       geminiApiKey,
-      geminiQuotaLimit,
-      whatsappEnabled,
+      openaiApiKey,
+      smtpHost,
+      smtpPort,
+      smtpUser,
+      smtpPass,
+      smtpFromEmail,
+      smtpFromName,
       whatsappApiKey,
       whatsappPhoneId
     } = req.body;
 
-    const updatedLicense = await prisma.license.update({
+    const updatedLab = await prisma.laboratory.update({
       where: { id },
       data: {
-        labName,
-        licenseType,
-        maxDevices: maxDevices !== undefined ? Number(maxDevices) : undefined,
+        name,
+        ownerName,
+        phone,
+        email,
+        address,
+        logo,
+        licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : undefined,
+        subscription,
         status,
-        expiryDate: expiryDate ? new Date(expiryDate) : null,
-        geminiApiKey: geminiApiKey !== undefined ? geminiApiKey : undefined,
-        geminiQuotaLimit: geminiQuotaLimit !== undefined ? Number(geminiQuotaLimit) : undefined,
-        whatsappEnabled: whatsappEnabled !== undefined ? Boolean(whatsappEnabled) : undefined,
-        whatsappApiKey: whatsappApiKey !== undefined ? whatsappApiKey : undefined,
-        whatsappPhoneId: whatsappPhoneId !== undefined ? whatsappPhoneId : undefined
+        geminiApiKey,
+        openaiApiKey,
+        smtpHost,
+        smtpPort: smtpPort ? Number(smtpPort) : undefined,
+        smtpUser,
+        smtpPass,
+        smtpFromEmail,
+        smtpFromName,
+        whatsappApiKey,
+        whatsappPhoneId
       }
     });
 
-    logger.info(`SuperAdmin: Configured settings for lab ID ${id}`);
-    res.json(updatedLicense);
+    // Sync license lab name and status if changed
+    await prisma.license.updateMany({
+      where: { laboratoryId: id },
+      data: {
+        labName: name || undefined,
+        status: status || undefined,
+        expiryDate: licenseExpiry ? new Date(licenseExpiry) : undefined
+      }
+    });
+
+    logger.info(`SuperAdmin: Updated laboratory configurations for lab ID ${id}`);
+    res.json(updatedLab);
   } catch (error: any) {
-    logger.error('SuperAdmin: Error updating lab config:', error);
+    logger.error('SuperAdmin: Error updating lab:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ─────────────────────────────────────────────
-// 4. Reset Gemini validation quota count
+// 5. Delete a Laboratory (Soft Delete)
 // ─────────────────────────────────────────────
-superAdminRouter.post('/labs/:id/quota-reset', async (req: Request, res: Response) => {
+superAdminRouter.delete('/labs/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await prisma.license.update({
+    if (id === 'default-lab') {
+      return res.status(400).json({ error: 'Cannot delete default laboratory' });
+    }
+
+    const updated = await prisma.laboratory.update({
       where: { id },
-      data: { geminiQuotaCount: 0 }
+      data: {
+        deletedAt: new Date(),
+        status: 'SUSPENDED'
+      }
     });
 
-    logger.info(`SuperAdmin: Reset Gemini quota counter to 0 for lab ID ${id}`);
-    res.json({ success: true, license: updated });
+    // Suspend users associated with this lab
+    await prisma.user.updateMany({
+      where: { laboratoryId: id },
+      data: { isActive: false }
+    });
+
+    logger.info(`SuperAdmin: Soft-deleted laboratory ID ${id}`);
+    res.json({ success: true, lab: updated });
   } catch (error: any) {
-    logger.error('SuperAdmin: Error resetting quota:', error);
+    logger.error('SuperAdmin: Error soft deleting lab:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ─────────────────────────────────────────────
-// 5. Reset registered devices for a license
-// ─────────────────────────────────────────────
-superAdminRouter.post('/labs/:id/devices-reset', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    await prisma.registeredDevice.deleteMany({
-      where: { licenseId: id }
-    });
-
-    logger.info(`SuperAdmin: Cleared all registered devices for lab ID ${id}`);
-    res.json({ success: true, message: 'All registered devices cleared successfully.' });
-  } catch (error: any) {
-    logger.error('SuperAdmin: Error resetting devices:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ─────────────────────────────────────────────
-// 6. Get all users for a specific lab
+// 6. Get all Technicians for a Lab
 // ─────────────────────────────────────────────
 superAdminRouter.get('/labs/:id/users', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const users = await prisma.user.findMany({
-      where: { licenseId: id, deletedAt: null },
+      where: { laboratoryId: id, deletedAt: null },
       select: {
         id: true,
         username: true,
@@ -154,7 +253,7 @@ superAdminRouter.get('/labs/:id/users', async (req: Request, res: Response) => {
         role: true,
         isActive: true,
         createdAt: true,
-        licenseId: true
+        laboratoryId: true
       },
       orderBy: { name: 'asc' }
     });
@@ -166,24 +265,21 @@ superAdminRouter.get('/labs/:id/users', async (req: Request, res: Response) => {
 });
 
 // ─────────────────────────────────────────────
-// 7. Create a user for a specific lab
+// 7. Create a Technician for a Lab
 // ─────────────────────────────────────────────
 superAdminRouter.post('/labs/:id/users', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { username, password, name, role } = req.body;
+    const { username, password, name } = req.body;
 
     if (!username || !password || !name) {
       return res.status(400).json({ error: 'username, password, and name are required' });
     }
-    if (!['ADMIN', 'TECHNICIAN'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be ADMIN or TECHNICIAN' });
-    }
 
     // Verify lab exists
-    const lab = await prisma.license.findUnique({ where: { id } });
+    const lab = await prisma.laboratory.findFirst({ where: { id, deletedAt: null } });
     if (!lab) {
-      return res.status(404).json({ error: 'Lab not found' });
+      return res.status(404).json({ error: 'Laboratory not found' });
     }
 
     // Check username uniqueness
@@ -198,9 +294,9 @@ superAdminRouter.post('/labs/:id/users', async (req: Request, res: Response) => 
         username: username.toLowerCase().trim(),
         password: hashedPassword,
         name,
-        role,
+        role: 'TECHNICIAN', // STRICTLY technician only (no lab admin)
         isActive: true,
-        licenseId: id
+        laboratoryId: id
       },
       select: {
         id: true,
@@ -209,20 +305,32 @@ superAdminRouter.post('/labs/:id/users', async (req: Request, res: Response) => 
         role: true,
         isActive: true,
         createdAt: true,
-        licenseId: true
+        laboratoryId: true
       }
     });
 
-    logger.info(`SuperAdmin: Created user "${username}" for lab ID ${id}`);
+    // Create default technician preferences/settings
+    await prisma.technicianSettings.create({
+      data: {
+        userId: newUser.id,
+        theme: 'light',
+        language: 'en',
+        printerName: '',
+        paperSize: 'A4',
+        margins: 'normal'
+      }
+    });
+
+    logger.info(`SuperAdmin: Created technician "${username}" for lab ID ${id}`);
     res.status(201).json(newUser);
   } catch (error: any) {
-    logger.error('SuperAdmin: Error creating lab user:', error);
+    logger.error('SuperAdmin: Error creating technician:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ─────────────────────────────────────────────
-// 8. Toggle user active status for a lab
+// 8. Toggle User Active Status
 // ─────────────────────────────────────────────
 superAdminRouter.patch('/labs/:id/users/:userId/toggle', async (req: Request, res: Response) => {
   try {
@@ -230,7 +338,7 @@ superAdminRouter.patch('/labs/:id/users/:userId/toggle', async (req: Request, re
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role === 'SUPER_ADMIN') {
-      return res.status(404).json({ error: 'User not found or cannot toggle super admin' });
+      return res.status(404).json({ error: 'Technician not found' });
     }
 
     const updated = await prisma.user.update({
@@ -239,35 +347,64 @@ superAdminRouter.patch('/labs/:id/users/:userId/toggle', async (req: Request, re
       select: { id: true, isActive: true }
     });
 
-    logger.info(`SuperAdmin: Toggled user ${userId} to isActive=${updated.isActive}`);
+    logger.info(`SuperAdmin: Toggled technician ${userId} active status to ${updated.isActive}`);
     res.json(updated);
   } catch (error: any) {
-    logger.error('SuperAdmin: Error toggling user status:', error);
+    logger.error('SuperAdmin: Error toggling technician status:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ─────────────────────────────────────────────
-// 9. Delete a user from a lab (soft delete)
+// 9. Reset User Password
 // ─────────────────────────────────────────────
-superAdminRouter.delete('/labs/:id/users/:userId', async (req: Request, res: Response) => {
+superAdminRouter.post('/labs/:id/users/:userId/reset-password', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters long' });
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role === 'SUPER_ADMIN') {
-      return res.status(404).json({ error: 'User not found or cannot delete super admin' });
+      return res.status(404).json({ error: 'Technician not found' });
     }
 
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
     await prisma.user.update({
       where: { id: userId },
-      data: { deletedAt: new Date(), isActive: false }
+      data: { password: hashedPassword }
     });
 
-    logger.info(`SuperAdmin: Soft-deleted user ${userId}`);
-    res.json({ success: true });
+    logger.info(`SuperAdmin: Reset password for technician ID ${userId}`);
+    res.json({ success: true, message: 'Password reset successfully.' });
   } catch (error: any) {
-    logger.error('SuperAdmin: Error deleting lab user:', error);
+    logger.error('SuperAdmin: Error resetting technician password:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// 10. Get Activity Logs for a laboratory
+// ─────────────────────────────────────────────
+superAdminRouter.get('/labs/:id/activity-logs', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const logs = await prisma.activityLog.findMany({
+      where: { laboratoryId: id },
+      include: {
+        user: {
+          select: { name: true, username: true }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: 100
+    });
+    res.json(logs);
+  } catch (error: any) {
+    logger.error('SuperAdmin: Error fetching activity logs:', error);
     res.status(500).json({ error: error.message });
   }
 });

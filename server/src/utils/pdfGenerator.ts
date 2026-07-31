@@ -42,8 +42,8 @@ export async function generateReportPDF(params: GeneratePdfParams): Promise<stri
     }
 
     // 2. Fetch Lab Settings
-    const settingsRecord = await prisma.setting.findUnique({
-      where: { key: 'lab_settings' }
+    const settingsRecord = await prisma.setting.findFirst({
+      where: { key: 'lab_settings', laboratoryId: report.laboratoryId }
     });
 
     let labSettings: any = {
@@ -59,6 +59,13 @@ export async function generateReportPDF(params: GeneratePdfParams): Promise<stri
       try {
         const parsedSettings = JSON.parse(settingsRecord.value);
         labSettings = { ...labSettings, ...parsedSettings };
+      } catch (e) {}
+    }
+
+    if (report.templateOverride) {
+      try {
+        const parsedTemplate = JSON.parse(report.templateOverride as string);
+        labSettings = { ...labSettings, ...parsedTemplate };
       } catch (e) {}
     }
 

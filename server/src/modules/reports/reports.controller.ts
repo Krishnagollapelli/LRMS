@@ -13,7 +13,7 @@ export const reportsRouter = Router();
 const mkeService = new KnowledgeEngineService();
 
 // Generate sequential Report ID: REP-YYYYMMDD-XXXX
-async function generateReportId(): Promise<string> {
+async function generateReportId(laboratoryId: string): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -25,6 +25,7 @@ async function generateReportId(): Promise<string> {
 
   const todayCount = await prisma.report.count({
     where: {
+      laboratoryId,
       createdAt: {
         gte: startOfDay,
         lte: endOfDay
@@ -37,7 +38,7 @@ async function generateReportId(): Promise<string> {
 }
 
 // Generate sequential Sample ID: SMP-YYYYMMDD-XXXX
-async function generateSampleId(): Promise<string> {
+async function generateSampleId(laboratoryId: string): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -49,6 +50,7 @@ async function generateSampleId(): Promise<string> {
 
   const todayCount = await prisma.report.count({
     where: {
+      laboratoryId,
       createdAt: {
         gte: startOfDay,
         lte: endOfDay
@@ -61,7 +63,7 @@ async function generateSampleId(): Promise<string> {
 }
 
 // Generate sequential Visit ID: VIS-YYYYMMDD-XXXX
-async function generateVisitId(): Promise<string> {
+async function generateVisitId(laboratoryId: string): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -73,6 +75,7 @@ async function generateVisitId(): Promise<string> {
 
   const todayCount = await prisma.visit.count({
     where: {
+      laboratoryId,
       createdAt: {
         gte: startOfDay,
         lte: endOfDay
@@ -101,14 +104,15 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
     }
 
     const { patientId, doctorId, testIds, visitId, remarks } = parsed.data;
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
 
     // Validate patient & doctor
-    const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+    const patient = await prisma.patient.findFirst({ where: { id: patientId, laboratoryId } });
     if (!patient || patient.deletedAt) {
       return res.status(404).json({ error: 'Patient not found' });
     }
 
-    const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
+    const doctor = await prisma.doctor.findFirst({ where: { id: doctorId, laboratoryId } });
     if (!doctor || !doctor.isActive) {
       return res.status(404).json({ error: 'Doctor not found' });
     }
@@ -116,10 +120,11 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
     // Resolve or Auto-Create Visit
     let finalVisitId = visitId;
     if (!finalVisitId) {
-      finalVisitId = await generateVisitId();
+      finalVisitId = await generateVisitId(laboratoryId);
       await prisma.visit.create({
         data: {
           id: finalVisitId,
+          laboratoryId,
           patientId,
           doctorId,
           status: 'TESTING'
@@ -133,13 +138,14 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
       });
     }
 
-    const reportId = await generateReportId();
-    const sampleId = await generateSampleId();
+    const reportId = await generateReportId(laboratoryId);
+    const sampleId = await generateSampleId(laboratoryId);
 
     // Create Report
     const report = await prisma.report.create({
       data: {
         id: reportId,
+        laboratoryId,
         visitId: finalVisitId,
         patientId,
         doctorId,
@@ -152,7 +158,7 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
 
     // Resolve tests to retrieve default prices
     const tests = await prisma.test.findMany({
-      where: { id: { in: testIds } },
+      where: { id: { in: testIds }, laboratoryId },
       include: {
         testParameters: {
           include: {
@@ -239,6 +245,7 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'CREATE_REPORT',
         details: `Created report: ${reportId} for patient: ${patient.name}`
@@ -255,6 +262,7 @@ reportsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
 // Save report results (manually entered values)
 reportsRouter.put('/:id/results', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
     const schema = z.object({
       status: z.enum(['DRAFT', 'PENDING', 'PENDING_VERIFICATION', 'VERIFIED', 'PRINTED', 'CANCELLED']).optional(),
@@ -273,8 +281,8 @@ reportsRouter.put('/:id/results', authenticateToken, async (req: AuthenticatedRe
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const report = await prisma.report.findUnique({
-      where: { id },
+    const report = await prisma.report.findFirst({
+      where: { id, laboratoryId },
       include: { patient: true }
     });
 
@@ -291,8 +299,8 @@ reportsRouter.put('/:id/results', authenticateToken, async (req: AuthenticatedRe
 
     // Save results and automatically check abnormal levels
     for (const resItem of results) {
-      const parameter = await prisma.parameter.findUnique({
-        where: { id: resItem.parameterId },
+      const parameter = await prisma.parameter.findFirst({
+        where: { id: resItem.parameterId, laboratoryId },
         include: { referenceRanges: true }
       });
 
@@ -372,6 +380,7 @@ reportsRouter.put('/:id/results', authenticateToken, async (req: AuthenticatedRe
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_REPORT_RESULTS',
         details: `Saved results for report: ${id}. Status set to: ${status || report.status}`
@@ -388,9 +397,10 @@ reportsRouter.put('/:id/results', authenticateToken, async (req: AuthenticatedRe
 // Fetch detailed report by ID
 reportsRouter.get('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const { id } = req.params;
-    const report = await prisma.report.findUnique({
-      where: { id },
+    const report = await prisma.report.findFirst({
+      where: { id, laboratoryId },
       include: {
         patient: true,
         doctor: true,
@@ -448,9 +458,12 @@ reportsRouter.get('/', authenticateToken, async (req: Request, res: Response) =>
     const limitNum = parseInt(limit as string) || 20;
     const skip = (pageNum - 1) * limitNum;
 
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
+
     // Build where clause
     const whereClause: any = {
-      deletedAt: null
+      deletedAt: null,
+      laboratoryId
     };
 
     if (status) {
@@ -536,7 +549,11 @@ reportsRouter.get('/download/:id', async (req: Request, res: Response) => {
 // Update Report status to Printed
 reportsRouter.post('/:id/print', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
+
+    const reportCheck = await prisma.report.findFirst({ where: { id, laboratoryId } });
+    if (!reportCheck) return res.status(404).json({ error: 'Report not found' });
 
     const report = await prisma.report.update({
       where: { id },
@@ -545,6 +562,7 @@ reportsRouter.post('/:id/print', authenticateToken, async (req: AuthenticatedReq
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'PRINT_REPORT',
         details: `Printed report sheet: ${id}`
@@ -571,10 +589,11 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
       return res.status(400).json({ error: parsed.error.format() });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { channel, recipient } = parsed.data;
 
-    const report = await prisma.report.findUnique({
-      where: { id },
+    const report = await prisma.report.findFirst({
+      where: { id, laboratoryId },
       include: { patient: true }
     });
 
@@ -632,6 +651,7 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: `SHARE_REPORT_${channel}`,
         details: `Shared report ${id} via ${channel} to ${recipient}. Result: ${log.status}`
@@ -648,6 +668,7 @@ reportsRouter.post('/:id/share', authenticateToken, async (req: AuthenticatedReq
 // Dashboard statistics
 reportsRouter.get('/dashboard/stats', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
     const endOfDay = new Date(now.setHours(23, 59, 59, 999));
@@ -655,6 +676,7 @@ reportsRouter.get('/dashboard/stats', authenticateToken, async (req: Request, re
     // Today's registered patients count
     const todayPatientsCount = await prisma.patient.count({
       where: {
+        laboratoryId,
         createdAt: {
           gte: startOfDay,
           lte: endOfDay
@@ -665,20 +687,20 @@ reportsRouter.get('/dashboard/stats', authenticateToken, async (req: Request, re
 
     // Report status counts
     const pendingReportsCount = await prisma.report.count({
-      where: { status: 'PENDING', deletedAt: null }
+      where: { status: 'PENDING', deletedAt: null, laboratoryId }
     });
 
     const completedReportsCount = await prisma.report.count({
-      where: { status: 'COMPLETED', deletedAt: null }
+      where: { status: 'COMPLETED', deletedAt: null, laboratoryId }
     });
 
     const printedReportsCount = await prisma.report.count({
-      where: { status: 'PRINTED', deletedAt: null }
+      where: { status: 'PRINTED', deletedAt: null, laboratoryId }
     });
 
     // Recent reports lists
     const recentReportsRaw = await prisma.report.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, laboratoryId },
       include: {
         patient: true,
         doctor: true,
@@ -708,7 +730,7 @@ reportsRouter.get('/dashboard/stats', authenticateToken, async (req: Request, re
     });
 
     const allTests = await prisma.test.findMany({
-      where: { deletedAt: null }
+      where: { deletedAt: null, laboratoryId }
     });
 
     const mostUsedTests = testCounts
@@ -739,8 +761,9 @@ reportsRouter.get('/dashboard/stats', authenticateToken, async (req: Request, re
 // Delete (soft delete) a patient report entry
 reportsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
-    const report = await prisma.report.findUnique({ where: { id } });
+    const report = await prisma.report.findFirst({ where: { id, laboratoryId } });
     if (!report || report.deletedAt) {
       return res.status(404).json({ error: 'Report not found' });
     }
@@ -754,6 +777,30 @@ reportsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest
     res.json({ message: 'Patient entry deleted successfully.' });
   } catch (error: any) {
     logger.error('Error deleting report:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update report-specific template config (overrides global margins/headers/footers/fonts)
+reportsRouter.put('/:id/template', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const { id } = req.params;
+    const { templateOverride } = req.body;
+
+    const report = await prisma.report.findFirst({ where: { id, laboratoryId } });
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const updated = await prisma.report.update({
+      where: { id },
+      data: { templateOverride: JSON.stringify(templateOverride) }
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    logger.error('Error updating report template:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -23,6 +23,26 @@ export class KnowledgeEngineService {
    */
   async seedDatabase(force = false) {
     try {
+      // Ensure the default laboratory exists
+      const existingDefaultLab = await prisma.laboratory.findUnique({ where: { id: 'default-lab' } });
+      if (!existingDefaultLab) {
+        await prisma.laboratory.create({
+          data: {
+            id: 'default-lab',
+            name: 'Default Laboratory',
+            ownerName: 'Krishna',
+            phone: 'N/A',
+            email: 'krishna@lrms.com',
+            address: 'Main Lab Address',
+            logo: null,
+            subscription: 'ACTIVE',
+            databaseStatus: 'ACTIVE',
+            status: 'ACTIVE'
+          }
+        });
+        logger.info('Default laboratory "default-lab" created.');
+      }
+
       const existingAdmin = await prisma.user.findFirst({ where: { username: 'admin' } });
       if (!existingAdmin) {
         await prisma.user.create({
@@ -30,20 +50,23 @@ export class KnowledgeEngineService {
             username: 'admin',
             password: bcrypt.hashSync('admin123', 10),
             name: 'Default Administrator',
-            role: 'ADMIN',
-            isActive: true
+            role: 'TECHNICIAN',
+            isActive: true,
+            laboratoryId: 'default-lab'
           }
         });
-        logger.info('Default admin user created (admin / admin123).');
+        logger.info('Default technician user created (admin / admin123).');
       } else {
         await prisma.user.update({
           where: { id: existingAdmin.id },
           data: {
             password: bcrypt.hashSync('admin123', 10),
-            isActive: true
+            role: 'TECHNICIAN',
+            isActive: true,
+            laboratoryId: 'default-lab'
           }
         });
-        logger.info('Default admin user password validated/reset to admin123.');
+        logger.info('Default technician user password validated/reset to admin123.');
       }
 
       // Seed Super Admin
@@ -81,7 +104,8 @@ export class KnowledgeEngineService {
             hospital: 'N/A',
             registrationNumber: 'N/A',
             phone: 'N/A',
-            isActive: true
+            isActive: true,
+            laboratoryId: 'default-lab'
           }
         });
         logger.info('Default doctor "Self" created.');

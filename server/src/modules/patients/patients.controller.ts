@@ -8,7 +8,7 @@ import Fuse from 'fuse.js';
 export const patientsRouter = Router();
 
 // Generate sequential Patient ID: PAT-YYYYMMDD-XXXX
-async function generatePatientId(): Promise<string> {
+async function generatePatientId(laboratoryId: string): Promise<string> {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -20,6 +20,7 @@ async function generatePatientId(): Promise<string> {
 
   const todayCount = await prisma.patient.count({
     where: {
+      laboratoryId,
       createdAt: {
         gte: startOfDay,
         lte: endOfDay
@@ -34,11 +35,12 @@ async function generatePatientId(): Promise<string> {
 // Search patients using Fuzzy search
 patientsRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const q = (req.query.q as string) || '';
 
     // Load active patients
     const patients = await prisma.patient.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, laboratoryId },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -63,12 +65,13 @@ patientsRouter.get('/', authenticateToken, async (req: Request, res: Response) =
 // Get patient by ID
 patientsRouter.get('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const { id } = req.params;
-    const patient = await prisma.patient.findUnique({
-      where: { id },
+    const patient = await prisma.patient.findFirst({
+      where: { id, laboratoryId },
       include: {
         reports: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, laboratoryId },
           orderBy: { createdAt: 'desc' }
         }
       }
@@ -102,17 +105,21 @@ patientsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, re
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const patientId = await generatePatientId();
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+
+    const patientId = await generatePatientId(laboratoryId);
 
     const newPatient = await prisma.patient.create({
       data: {
         id: patientId,
+        laboratoryId,
         ...parsed.data
       }
     });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'REGISTER_PATIENT',
         details: `Registered patient: ${newPatient.name} (${newPatient.id})`
@@ -144,7 +151,9 @@ patientsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, 
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const patient = await prisma.patient.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+
+    const patient = await prisma.patient.findFirst({ where: { id, laboratoryId } });
     if (!patient || patient.deletedAt) {
       return res.status(404).json({ error: 'Patient not found' });
     }
@@ -156,6 +165,7 @@ patientsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, 
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_PATIENT',
         details: `Updated patient details: ${patient.name} (${patient.id})`
@@ -174,7 +184,9 @@ patientsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedReques
   try {
     const { id } = req.params;
 
-    const patient = await prisma.patient.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+
+    const patient = await prisma.patient.findFirst({ where: { id, laboratoryId } });
     if (!patient || patient.deletedAt) {
       return res.status(404).json({ error: 'Patient not found' });
     }
@@ -186,6 +198,7 @@ patientsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedReques
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DELETE_PATIENT',
         details: `Deleted patient: ${patient.name} (${patient.id})`

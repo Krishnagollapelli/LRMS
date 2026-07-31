@@ -11,8 +11,9 @@ const mkeService = new KnowledgeEngineService();
 // Get all parameters — raw array for client-side search and caching
 parametersRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const { category, isActive, q } = req.query;
-    const where: any = { deletedAt: null };
+    const where: any = { deletedAt: null, laboratoryId };
 
     if (category) {
       where.category = category;
@@ -35,7 +36,7 @@ parametersRouter.get('/', authenticateToken, async (req: Request, res: Response)
       include: {
         unit: true,
         referenceRanges: {
-          where: { deletedAt: null }
+          where: { deletedAt: null, laboratoryId }
         }
       },
       orderBy: { name: 'asc' }
@@ -90,6 +91,7 @@ parametersRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, 
       description,
       referenceRanges = []
     } = parsed.data;
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
 
     // Check duplicate prevention
     const duplicates = await mkeService.detectDuplicateParameter(name, shortCode, aliases);
@@ -106,6 +108,7 @@ parametersRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, 
 
     const newParam = await prisma.parameter.create({
       data: {
+        laboratoryId,
         name,
         shortCode,
         aliases: aliases.join(','),
@@ -121,6 +124,7 @@ parametersRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, 
     if (referenceRanges.length > 0) {
       await prisma.referenceRange.createMany({
         data: referenceRanges.map(range => ({
+          laboratoryId,
           parameterId: newParam.id,
           gender: range.gender,
           ageMin: range.ageMin,
@@ -138,14 +142,15 @@ parametersRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, 
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'CREATE_PARAMETER',
         details: `Created master parameter: ${newParam.name} (${newParam.shortCode})`
       }
     });
 
-    const fullParam = await prisma.parameter.findUnique({
-      where: { id: newParam.id },
+    const fullParam = await prisma.parameter.findFirst({
+      where: { id: newParam.id, laboratoryId },
       include: { unit: true, referenceRanges: true }
     });
 
@@ -185,7 +190,8 @@ parametersRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const param = await prisma.parameter.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const param = await prisma.parameter.findFirst({ where: { id, laboratoryId } });
     if (!param || param.deletedAt) {
       return res.status(404).json({ error: 'Parameter not found' });
     }
@@ -204,12 +210,13 @@ parametersRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest
     // Rewrite reference ranges if provided
     if (referenceRanges !== undefined) {
       await prisma.referenceRange.deleteMany({
-        where: { parameterId: id }
+        where: { parameterId: id, laboratoryId }
       });
 
       if (referenceRanges.length > 0) {
         await prisma.referenceRange.createMany({
           data: referenceRanges.map(range => ({
+            laboratoryId,
             parameterId: id,
             gender: range.gender,
             ageMin: range.ageMin,
@@ -228,14 +235,15 @@ parametersRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_PARAMETER',
         details: `Updated master parameter details: ${param.name}`
       }
     });
 
-    const fullParam = await prisma.parameter.findUnique({
-      where: { id },
+    const fullParam = await prisma.parameter.findFirst({
+      where: { id, laboratoryId },
       include: { unit: true, referenceRanges: true }
     });
 
@@ -249,9 +257,10 @@ parametersRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest
 // Soft Delete parameter
 parametersRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { id } = req.params;
 
-    const param = await prisma.parameter.findUnique({ where: { id } });
+    const param = await prisma.parameter.findFirst({ where: { id, laboratoryId } });
     if (!param || param.deletedAt) {
       return res.status(404).json({ error: 'Parameter not found' });
     }
@@ -266,6 +275,7 @@ parametersRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequ
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DELETE_PARAMETER',
         details: `Deleted master parameter: ${param.name}`
@@ -282,13 +292,14 @@ parametersRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequ
 // Bulk Soft Delete parameters
 parametersRouter.post('/bulk-delete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ error: 'Array of parameter IDs is required' });
     }
 
     await prisma.parameter.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, laboratoryId },
       data: { deletedAt: new Date(), isActive: false }
     });
 
@@ -297,6 +308,7 @@ parametersRouter.post('/bulk-delete', authenticateToken, async (req: Authenticat
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'BULK_DELETE_PARAMETERS',
         details: `Bulk deleted ${ids.length} parameters`
@@ -312,17 +324,19 @@ parametersRouter.post('/bulk-delete', authenticateToken, async (req: Authenticat
 // Bulk Clear ALL parameters (Super Admin clean-slate before import)
 parametersRouter.post('/bulk-clear', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
     // Only allow ADMIN or SUPER_ADMIN
     if (!['ADMIN', 'SUPER_ADMIN'].includes(req.user?.role || '')) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Delete reference ranges first (FK constraint), then parameters
-    const deletedRanges = await prisma.referenceRange.deleteMany({});
-    const deletedParams = await prisma.parameter.deleteMany({});
+    const deletedRanges = await prisma.referenceRange.deleteMany({ where: { laboratoryId } });
+    const deletedParams = await prisma.parameter.deleteMany({ where: { laboratoryId } });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'BULK_CLEAR_PARAMETERS',
         details: `Cleared ALL parameters: ${deletedParams.count} params, ${deletedRanges.count} ranges deleted`

@@ -9,8 +9,9 @@ export const doctorsRouter = Router();
 // Get all active doctors
 doctorsRouter.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
+    const laboratoryId = (req as AuthenticatedRequest).user?.laboratoryId || 'default-lab';
     const doctors = await prisma.doctor.findMany({
-      where: { isActive: true },
+      where: { isActive: true, laboratoryId },
       orderBy: { name: 'asc' }
     });
     res.json(doctors);
@@ -36,12 +37,15 @@ doctorsRouter.post('/', authenticateToken, async (req: AuthenticatedRequest, res
       return res.status(400).json({ error: parsed.error.format() });
     }
 
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+
     const newDoctor = await prisma.doctor.create({
-      data: parsed.data
+      data: { ...parsed.data, laboratoryId }
     });
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'CREATE_DOCTOR',
         details: `Created doctor: ${newDoctor.name} (${newDoctor.registrationNumber})`
@@ -73,7 +77,8 @@ doctorsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, r
       return res.status(400).json({ error: parsed.error.format() });
     }
 
-    const doctor = await prisma.doctor.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const doctor = await prisma.doctor.findFirst({ where: { id, laboratoryId } });
     if (!doctor) {
       return res.status(404).json({ error: 'Doctor not found' });
     }
@@ -85,6 +90,7 @@ doctorsRouter.put('/:id', authenticateToken, async (req: AuthenticatedRequest, r
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'UPDATE_DOCTOR',
         details: `Updated doctor: ${doctor.name}`
@@ -103,7 +109,8 @@ doctorsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest
   try {
     const { id } = req.params;
 
-    const doctor = await prisma.doctor.findUnique({ where: { id } });
+    const laboratoryId = req.user?.laboratoryId || 'default-lab';
+    const doctor = await prisma.doctor.findFirst({ where: { id, laboratoryId } });
     if (!doctor) {
       return res.status(404).json({ error: 'Doctor not found' });
     }
@@ -115,6 +122,7 @@ doctorsRouter.delete('/:id', authenticateToken, async (req: AuthenticatedRequest
 
     await prisma.auditLog.create({
       data: {
+        laboratoryId,
         userId: req.user?.id,
         action: 'DELETE_DOCTOR',
         details: `Deleted doctor: ${doctor.name}`
