@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -331,11 +331,13 @@ model AnalyzerProfile {
 
 model Setting {
   id           String     @id @default(uuid())
-  key          String     @unique
+  key          String     
   value        String     // JSON string
 
   laboratoryId String     @default("default-lab")
   laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+
+  @@unique([key, laboratoryId])
 }
 
 model AuditLog {

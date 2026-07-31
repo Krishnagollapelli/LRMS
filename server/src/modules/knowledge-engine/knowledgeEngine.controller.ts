@@ -149,8 +149,9 @@ mkeRouter.post('/units/normalize', authenticateToken, async (req: Request, res: 
 
     // Fallback to global setting
     if (!geminiApiKey) {
-      const apiSetting = await prisma.setting.findUnique({
-        where: { key: 'lab_settings' }
+      const laboratoryId = (req as any).user?.laboratoryId || 'default-lab';
+      const apiSetting = await prisma.setting.findFirst({
+        where: { key: 'lab_settings', laboratoryId }
       });
       if (apiSetting) {
         try {
@@ -219,8 +220,9 @@ mkeRouter.get('/ai-resolve', authenticateToken, async (req: Request, res: Respon
 
     // Fallback to global settings
     if (!geminiApiKey) {
-      const apiSetting = await prisma.setting.findUnique({
-        where: { key: 'lab_settings' }
+      const laboratoryId = (req as any).user?.laboratoryId || 'default-lab';
+      const apiSetting = await prisma.setting.findFirst({
+        where: { key: 'lab_settings', laboratoryId }
       });
       if (apiSetting) {
         try {

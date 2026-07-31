@@ -31,7 +31,9 @@ async function generateReceiptBuffer(reportId: string): Promise<Buffer> {
   }
 
   // Load Settings
-  const settingsRecord = await prisma.setting.findUnique({ where: { key: 'lab_settings' } });
+  const settingsRecord = await prisma.setting.findFirst({
+    where: { key: 'lab_settings', laboratoryId: report.laboratoryId }
+  });
   let labSettings: any = {
     labName: 'Diagnostic Laboratory System',
     labAddress: '123 Medical Health Street, Health City',
@@ -381,7 +383,8 @@ billingRouter.post('/:reportId/share', authenticateToken, async (req: Authentica
             path: pdfPath
           }
         ],
-        licenseId: req.user?.licenseId
+        licenseId: req.user?.licenseId,
+        laboratoryId: report.laboratoryId || req.user?.laboratoryId || 'default-lab'
       });
       shareSuccess = emailRes.success;
       errorMsg = emailRes.error;
@@ -392,7 +395,8 @@ billingRouter.post('/:reportId/share', authenticateToken, async (req: Authentica
         pdfFilename: `receipt_${reportId}.pdf`,
         patientName: report.patient.name,
         reportId,
-        licenseId: req.user?.licenseId
+        licenseId: req.user?.licenseId,
+        laboratoryId: report.laboratoryId || req.user?.laboratoryId || 'default-lab'
       });
       shareSuccess = whatsappRes.success;
       errorMsg = whatsappRes.error;

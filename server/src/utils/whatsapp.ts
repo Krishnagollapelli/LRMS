@@ -8,31 +8,19 @@ export interface SendWhatsAppParams {
   patientName: string;
   reportId: string;
   licenseId?: string | null;
+  laboratoryId?: string | null;
 }
 
 export async function sendWhatsAppPDF(params: SendWhatsAppParams): Promise<{ success: boolean; error?: string }> {
   try {
     let config: any = {};
 
-    if (params.licenseId) {
-      const license = await prisma.license.findUnique({
-        where: { id: params.licenseId }
-      });
-      if (license) {
-        config = {
-          whatsappEnabled: license.whatsappEnabled,
-          whatsappApiKey: license.whatsappApiKey,
-          whatsappPhoneId: license.whatsappPhoneId,
-          labName: license.labName
-        };
+    const settingsRecord = await prisma.setting.findFirst({
+      where: { 
+        key: 'lab_settings',
+        laboratoryId: params.laboratoryId || 'default-lab'
       }
-    }
-
-    // Fallback to global settings if license not found or not provided
-    if (!config.whatsappApiKey) {
-      const settingsRecord = await prisma.setting.findUnique({
-        where: { key: 'lab_settings' }
-      });
+    });
       if (settingsRecord) {
         try {
           const globalConfig = JSON.parse(settingsRecord.value);
@@ -44,7 +32,6 @@ export async function sendWhatsAppPDF(params: SendWhatsAppParams): Promise<{ suc
           };
         } catch (e) {}
       }
-    }
 
     const { whatsappEnabled, whatsappApiKey, whatsappPhoneId, labName } = config;
 
@@ -109,7 +96,7 @@ export async function sendWhatsAppPDF(params: SendWhatsAppParams): Promise<{ suc
                 {
                   type: "document",
                   document: {
-                    link: `http://localhost:5000/api/reports/download/${params.reportId}`, // For dev local sync
+                    link: `${process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000')}/api/reports/download/${params.reportId}`,
                     filename: params.pdfFilename
                   }
                 }

@@ -483,11 +483,17 @@ settingsRouter.post('/backup/import', authenticateToken, requireAdmin, async (re
     // Use Prisma transaction to restore data cleanly
     await prisma.$transaction(async (tx) => {
       // 1. Settings
+      const laboratoryId = (req as any).user?.laboratoryId || 'default-lab';
       for (const s of settings) {
         await tx.setting.upsert({
-          where: { key: s.key },
+          where: { 
+            key_laboratoryId: {
+              key: s.key,
+              laboratoryId
+            }
+          },
           update: { value: s.value },
-          create: { key: s.key, value: s.value }
+          create: { key: s.key, value: s.value, laboratoryId }
         });
       }
 

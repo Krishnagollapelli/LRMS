@@ -12,16 +12,19 @@ export interface SendMailParams {
     path: string;
   }[];
   licenseId?: string | null;
+  laboratoryId?: string | null;
 }
 
 export async function sendEmail(params: SendMailParams): Promise<{ success: boolean; error?: string }> {
   try {
     let config: any = {};
 
-    // Email config only comes from global settings (lab_settings)
-    // License-level email fields have been removed
-    const settingsRecord = await prisma.setting.findUnique({
-      where: { key: 'lab_settings' }
+    // Email config comes from laboratory-specific settings (lab_settings)
+    const settingsRecord = await prisma.setting.findFirst({
+      where: { 
+        key: 'lab_settings',
+        laboratoryId: params.laboratoryId || 'default-lab'
+      }
     });
     if (settingsRecord) {
       try {
