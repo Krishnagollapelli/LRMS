@@ -1,16 +1,10 @@
 {
   "version": 2,
   "outputDirectory": "client/dist",
-  "builds": [
-    {
-      "src": "server/src/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/src/index.ts"
+      "dest": "/api/index.ts"
     },
     {
       "handle": "filesystem"
