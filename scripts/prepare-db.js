@@ -1,9 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
-
-// Load local .env variables
-dotenv.config();
 
 const schemaPath = path.resolve('prisma/schema.prisma');
 if (!fs.existsSync(schemaPath)) {
@@ -13,8 +9,19 @@ if (!fs.existsSync(schemaPath)) {
 
 let schema = fs.readFileSync(schemaPath, 'utf8');
 
-// Determine protocol based on DATABASE_URL
-const dbUrl = process.env.DATABASE_URL || '';
+// Determine protocol based on DATABASE_URL (check process env first, then fall back to local .env file)
+let dbUrl = process.env.DATABASE_URL || '';
+if (!dbUrl) {
+  const envPath = path.resolve('.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const match = envContent.match(/DATABASE_URL\s*=\s*["']?([^"'\r\n]+)/);
+    if (match) {
+      dbUrl = match[1];
+    }
+  }
+}
+
 const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
 
 let targetProvider = 'sqlite';
