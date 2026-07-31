@@ -81,9 +81,20 @@ const getApiBaseUrl = () => {
   
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
+    const port = window.location.port;
     
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:5000/api';
+    // Check if running on localhost, private LAN IPs, or the default Vite dev port
+    const isLocal = 
+      hostname === 'localhost' || 
+      hostname === '127.0.0.1' || 
+      port === '5173' ||
+      hostname.startsWith('192.168.') || 
+      hostname.startsWith('10.') || 
+      hostname.startsWith('172.') || 
+      hostname.endsWith('.local');
+      
+    if (isLocal) {
+      return `http://${hostname}:5000/api`;
     }
     
     // In cloud deployments (like Vercel), backend routes are served relative to the hosted domain's origin
