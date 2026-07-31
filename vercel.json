@@ -1,17 +1,22 @@
 {
   "version": 2,
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/:match*",
-      "destination": "server/src/index.ts"
+      "src": "server/src/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/src/index.ts"
     },
     {
-      "source": "/assets/:match*",
-      "destination": "/client/dist/assets/:match*"
+      "handle": "filesystem"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/client/dist/index.html"
+      "src": "/(.*)",
+      "dest": "client/dist/index.html"
     }
   ]
 }
