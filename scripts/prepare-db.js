@@ -22,7 +22,7 @@ if (!dbUrl) {
   }
 }
 
-const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://');
+const isPostgres = dbUrl.startsWith('postgresql://') || dbUrl.startsWith('postgres://') || !!process.env.VERCEL;
 
 let targetProvider = 'sqlite';
 if (isPostgres) {
