@@ -52,18 +52,18 @@ export class KnowledgeEngineService {
         await prisma.user.create({
           data: {
             username: 'krishna',
-            password: bcrypt.hashSync('krishna@2006', 10),
+            password: bcrypt.hashSync('Krishna2006', 10),
             name: 'Super Administrator',
             role: 'SUPER_ADMIN',
             isActive: true
           }
         });
-        logger.info('Super admin user created (krishna / krishna@2006).');
+        logger.info('Super admin user created (krishna / Krishna2006).');
       } else {
         await prisma.user.update({
           where: { id: existingSuperAdmin.id },
           data: {
-            password: bcrypt.hashSync('krishna@2006', 10),
+            password: bcrypt.hashSync('Krishna2006', 10),
             isActive: true,
             role: 'SUPER_ADMIN'
           }

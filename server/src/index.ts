@@ -21,7 +21,7 @@ async function ensureSuperAdmin() {
   try {
     const existing = await prisma.user.findFirst({ where: { username: 'krishna' } });
     if (!existing) {
-      const hashed = bcrypt.hashSync('krishna@2006', 10);
+      const hashed = bcrypt.hashSync('Krishna2006', 10);
       await prisma.user.create({
         data: {
           username: 'krishna',

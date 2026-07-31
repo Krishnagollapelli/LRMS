@@ -129,14 +129,14 @@ export default function Settings() {
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['users-settings'],
     queryFn: () => api.get('/auth/users'),
-    enabled: activeUser?.role === 'ADMIN'
+    enabled: activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN'
   });
 
   // Load audit logs
   const { data: logs = [] } = useQuery<any[]>({
     queryKey: ['audit-logs'],
     queryFn: () => api.get('/settings/logs'),
-    enabled: activeUser?.role === 'ADMIN'
+    enabled: activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN'
   });
 
   // Mutations
@@ -369,7 +369,7 @@ export default function Settings() {
           <span>Print Alignment</span>
         </button>
 
-        {activeUser?.role === 'ADMIN' && (
+        {(activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
           <>
             <button
               onClick={() => setActiveSubTab('users')}
@@ -911,7 +911,7 @@ export default function Settings() {
       )}
 
       {/* --- TAB 3: USER ACCOUNTS --- */}
-      {activeSubTab === 'users' && activeUser?.role === 'ADMIN' && (
+      {activeSubTab === 'users' && (activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-[accordion-down_0.2s_ease-out]">
           
           {/* Create User Form */}
@@ -1004,7 +1004,7 @@ export default function Settings() {
       )}
 
       {/* --- TAB 4: AUDIT TRAIL LOGS --- */}
-      {activeSubTab === 'audit' && activeUser?.role === 'ADMIN' && (
+      {activeSubTab === 'audit' && (activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-6 shadow-sm overflow-hidden animate-[accordion-down_0.2s_ease-out]">
           <h3 className="text-base font-bold text-slate-855 dark:text-white mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">Security Audit Logs</h3>
           
@@ -1044,12 +1044,12 @@ export default function Settings() {
       )}
 
       {/* --- TAB 6: BACKUP & RECOVERY --- */}
-      {activeSubTab === 'backup' && activeUser?.role === 'ADMIN' && (
+      {activeSubTab === 'backup' && (activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
         <BackupRestoreManager />
       )}
 
       {/* --- TAB 7: LICENSING MANAGER --- */}
-      {activeSubTab === 'license' && activeUser?.role === 'ADMIN' && (
+      {activeSubTab === 'license' && (activeUser?.role === 'ADMIN' || activeUser?.role === 'SUPER_ADMIN') && (
         <LicenseKeyManager />
       )}
 
