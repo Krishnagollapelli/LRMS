@@ -81,17 +81,13 @@ const getApiBaseUrl = () => {
   
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
     
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:5000/api';
     }
     
-    if (protocol === 'https:') {
-      return `https://${hostname}:5000/api`;
-    }
-    
-    return `http://${hostname}:5000/api`;
+    // In cloud deployments (like Vercel), backend routes are served relative to the hosted domain's origin
+    return `${window.location.origin}/api`;
   }
   return 'http://localhost:5000/api';
 };
