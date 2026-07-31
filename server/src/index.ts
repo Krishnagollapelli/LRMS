@@ -14,7 +14,6 @@ import { reportsRouter } from './modules/reports/reports.controller.js';
 import { settingsRouter } from './modules/settings/settings.controller.js';
 import { licensingRouter } from './modules/licensing/licensing.controller.js';
 import { billingRouter } from './modules/billing/billing.controller.js';
-import { startSyncEngine } from './modules/sync/syncEngine.js';
 import { superAdminRouter } from './modules/super-admin/superAdmin.controller.js';
 
 // Ensure the hardcoded super admin account always exists
@@ -88,8 +87,6 @@ if (!process.env.VERCEL) {
     logger.info(`Laboratory API Server running on port ${PORT}`);
     // Seed the hardcoded super admin account
     await ensureSuperAdmin();
-    // Start cloud sync daemon if configured
-    startSyncEngine(30000); // sync every 30 seconds
   });
 
   // Handle graceful shutdown
