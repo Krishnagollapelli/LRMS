@@ -9,9 +9,9 @@
     "server"
   ],
   "scripts": {
-    "db:generate": "prisma generate --schema=./prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
-    "db:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
+    "db:generate": "node scripts/prepare-db.js && prisma generate --schema=./prisma/schema.prisma",
+    "db:migrate": "node scripts/prepare-db.js && prisma migrate dev --schema=./prisma/schema.prisma",
+    "db:deploy": "node scripts/prepare-db.js && prisma migrate deploy --schema=./prisma/schema.prisma",
     "install:all": "npm install && npm run db:generate",
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
